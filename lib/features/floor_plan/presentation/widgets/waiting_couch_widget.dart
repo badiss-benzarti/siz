@@ -1,4 +1,4 @@
-import 'package:barber_shop_owner/features/floor_plan/presentation/widgets/room/room_art.dart';
+import 'package:siz/features/floor_plan/presentation/widgets/room/room_art.dart';
 import 'package:flutter/material.dart';
 
 /// The waiting-area card at the front of the room: a couch with one little

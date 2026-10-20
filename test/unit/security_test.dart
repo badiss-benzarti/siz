@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:barber_shop_owner/core/security/password_hasher.dart';
+import 'package:siz/core/security/password_hasher.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 String _hex(List<int> bytes) =>

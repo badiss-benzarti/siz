@@ -1,9 +1,9 @@
-import 'package:barber_shop_owner/core/demo/demo_seeder.dart';
-import 'package:barber_shop_owner/core/sync/sync_engine.dart';
-import 'package:barber_shop_owner/core/sync/sync_remote.dart';
-import 'package:barber_shop_owner/features/auth_onboarding/domain/shop_profile.dart';
-import 'package:barber_shop_owner/features/barbers/domain/barber.dart';
-import 'package:barber_shop_owner/features/finance/domain/service_ticket.dart';
+import 'package:siz/core/demo/demo_seeder.dart';
+import 'package:siz/core/sync/sync_engine.dart';
+import 'package:siz/core/sync/sync_remote.dart';
+import 'package:siz/features/auth_onboarding/domain/shop_profile.dart';
+import 'package:siz/features/barbers/domain/barber.dart';
+import 'package:siz/features/finance/domain/service_ticket.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers/fake_sync_server.dart';

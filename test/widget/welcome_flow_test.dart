@@ -1,9 +1,9 @@
 import 'dart:io';
 
-import 'package:barber_shop_owner/app.dart';
-import 'package:barber_shop_owner/core/providers/cloud_providers.dart';
-import 'package:barber_shop_owner/features/auth_onboarding/presentation/auth_providers.dart';
-import 'package:barber_shop_owner/features/client_app/client_directory.dart';
+import 'package:siz/app.dart';
+import 'package:siz/core/providers/cloud_providers.dart';
+import 'package:siz/features/auth_onboarding/presentation/auth_providers.dart';
+import 'package:siz/features/client_app/client_directory.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

@@ -1,6 +1,6 @@
-import 'package:barber_shop_owner/core/ui/ui_helpers.dart';
-import 'package:barber_shop_owner/features/clients/presentation/client_providers.dart';
-import 'package:barber_shop_owner/features/queue/presentation/queue_providers.dart';
+import 'package:siz/core/ui/ui_helpers.dart';
+import 'package:siz/features/clients/presentation/client_providers.dart';
+import 'package:siz/features/queue/presentation/queue_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';

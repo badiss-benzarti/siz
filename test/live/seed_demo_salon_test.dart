@@ -13,13 +13,13 @@
 /// its sales history up to date).
 library;
 
-import 'package:barber_shop_owner/core/cloud/cloud_auth.dart';
-import 'package:barber_shop_owner/core/cloud/cloud_shop_repository.dart';
-import 'package:barber_shop_owner/core/config/supabase_config.dart';
-import 'package:barber_shop_owner/core/demo/demo_seeder.dart';
-import 'package:barber_shop_owner/core/errors/app_exception.dart';
-import 'package:barber_shop_owner/core/sync/supabase_sync_remote.dart';
-import 'package:barber_shop_owner/core/sync/sync_engine.dart';
+import 'package:siz/core/cloud/cloud_auth.dart';
+import 'package:siz/core/cloud/cloud_shop_repository.dart';
+import 'package:siz/core/config/supabase_config.dart';
+import 'package:siz/core/demo/demo_seeder.dart';
+import 'package:siz/core/errors/app_exception.dart';
+import 'package:siz/core/sync/supabase_sync_remote.dart';
+import 'package:siz/core/sync/sync_engine.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 

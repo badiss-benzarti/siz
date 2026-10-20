@@ -11,7 +11,7 @@ import 'entry_role.dart';
 class WelcomeScreen extends ConsumerWidget {
   const WelcomeScreen({super.key});
 
-  static const appName = 'BarberFlow';
+  static const appName = 'Siz';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

@@ -2,7 +2,7 @@
     <!-- Cloud backend (Supabase) and map tiles. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="BarberFlow"
+        android:label="Siz"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

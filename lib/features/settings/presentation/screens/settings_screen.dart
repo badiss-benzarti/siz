@@ -1,11 +1,11 @@
-import 'package:barber_shop_owner/core/repositories/shop_repository.dart';
-import 'package:barber_shop_owner/core/sync/sync_controller.dart';
-import 'package:barber_shop_owner/core/ui/ui_helpers.dart';
-import 'package:barber_shop_owner/features/auth_onboarding/domain/shop_profile.dart';
-import 'package:barber_shop_owner/features/auth_onboarding/presentation/auth_providers.dart';
-import 'package:barber_shop_owner/features/barbers/presentation/barber_providers.dart';
-import 'package:barber_shop_owner/features/floor_plan/presentation/floor_plan_providers.dart';
-import 'package:barber_shop_owner/features/shop_location/salon_map_card.dart';
+import 'package:siz/core/repositories/shop_repository.dart';
+import 'package:siz/core/sync/sync_controller.dart';
+import 'package:siz/core/ui/ui_helpers.dart';
+import 'package:siz/features/auth_onboarding/domain/shop_profile.dart';
+import 'package:siz/features/auth_onboarding/presentation/auth_providers.dart';
+import 'package:siz/features/barbers/presentation/barber_providers.dart';
+import 'package:siz/features/floor_plan/presentation/floor_plan_providers.dart';
+import 'package:siz/features/shop_location/salon_map_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

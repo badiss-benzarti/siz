@@ -1,4 +1,4 @@
-import 'package:barber_shop_owner/core/cloud/cloud_errors.dart';
+import 'package:siz/core/cloud/cloud_errors.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 

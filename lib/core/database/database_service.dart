@@ -18,7 +18,7 @@ class DatabaseService {
   final String? _path;
   Future<Database>? _opening;
 
-  static const String _dbFileName = 'barber_shop_owner_secure.db';
+  static const String _dbFileName = 'siz.db';
   static const int schemaVersion = 6;
 
   /// The open database. Concurrent callers share the same connection.

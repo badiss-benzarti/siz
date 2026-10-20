@@ -1,5 +1,5 @@
-import 'package:barber_shop_owner/features/client_app/client_directory.dart';
-import 'package:barber_shop_owner/features/floor_plan/domain/station.dart';
+import 'package:siz/features/client_app/client_directory.dart';
+import 'package:siz/features/floor_plan/domain/station.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 
 /// One listed salon, Blade & Crown, with two barbers, prices and a photo.

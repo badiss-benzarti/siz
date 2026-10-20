@@ -1,8 +1,8 @@
-import 'package:barber_shop_owner/core/ui/dashboard_widgets.dart';
-import 'package:barber_shop_owner/core/ui/ui_helpers.dart';
-import 'package:barber_shop_owner/features/finance/domain/finance_summary.dart';
-import 'package:barber_shop_owner/features/finance/domain/service_ticket.dart';
-import 'package:barber_shop_owner/features/finance/presentation/finance_providers.dart';
+import 'package:siz/core/ui/dashboard_widgets.dart';
+import 'package:siz/core/ui/ui_helpers.dart';
+import 'package:siz/features/finance/domain/finance_summary.dart';
+import 'package:siz/features/finance/domain/service_ticket.dart';
+import 'package:siz/features/finance/presentation/finance_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';

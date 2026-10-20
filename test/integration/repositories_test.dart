@@ -1,10 +1,10 @@
 import 'dart:io';
 
-import 'package:barber_shop_owner/core/database/database_service.dart';
-import 'package:barber_shop_owner/core/errors/app_exception.dart';
-import 'package:barber_shop_owner/core/security/password_hasher.dart';
-import 'package:barber_shop_owner/features/finance/domain/service_ticket.dart';
-import 'package:barber_shop_owner/features/floor_plan/domain/station.dart';
+import 'package:siz/core/database/database_service.dart';
+import 'package:siz/core/errors/app_exception.dart';
+import 'package:siz/core/security/password_hasher.dart';
+import 'package:siz/features/finance/domain/service_ticket.dart';
+import 'package:siz/features/floor_plan/domain/station.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';

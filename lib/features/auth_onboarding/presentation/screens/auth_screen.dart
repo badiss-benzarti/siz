@@ -1,7 +1,7 @@
-import 'package:barber_shop_owner/core/demo/demo_seeder.dart';
-import 'package:barber_shop_owner/core/repositories/shop_repository.dart';
-import 'package:barber_shop_owner/features/auth_onboarding/presentation/auth_providers.dart';
-import 'package:barber_shop_owner/features/welcome/entry_role.dart';
+import 'package:siz/core/demo/demo_seeder.dart';
+import 'package:siz/core/repositories/shop_repository.dart';
+import 'package:siz/features/auth_onboarding/presentation/auth_providers.dart';
+import 'package:siz/features/welcome/entry_role.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

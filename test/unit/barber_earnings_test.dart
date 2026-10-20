@@ -1,5 +1,5 @@
-import 'package:barber_shop_owner/features/barber_app/barber_earnings.dart';
-import 'package:barber_shop_owner/features/finance/domain/service_ticket.dart';
+import 'package:siz/features/barber_app/barber_earnings.dart';
+import 'package:siz/features/finance/domain/service_ticket.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 EarningLine _sale(DateTime time, double commission, {double tip = 0}) =>

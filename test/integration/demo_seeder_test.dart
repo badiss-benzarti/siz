@@ -1,5 +1,5 @@
-import 'package:barber_shop_owner/core/demo/demo_seeder.dart';
-import 'package:barber_shop_owner/features/floor_plan/domain/station.dart';
+import 'package:siz/core/demo/demo_seeder.dart';
+import 'package:siz/features/floor_plan/domain/station.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers/test_database.dart';

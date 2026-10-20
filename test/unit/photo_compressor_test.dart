@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
-import 'package:barber_shop_owner/core/errors/app_exception.dart';
-import 'package:barber_shop_owner/core/media/photo_compressor.dart';
+import 'package:siz/core/errors/app_exception.dart';
+import 'package:siz/core/media/photo_compressor.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 

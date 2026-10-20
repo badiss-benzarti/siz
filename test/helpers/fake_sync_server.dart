@@ -1,4 +1,4 @@
-import 'package:barber_shop_owner/core/sync/sync_remote.dart';
+import 'package:siz/core/sync/sync_remote.dart';
 
 /// A server keeping local-format rows with its own clock.
 class FakeServer implements SyncRemote {

@@ -1,6 +1,6 @@
-import 'package:barber_shop_owner/core/cloud/cloud_auth.dart';
-import 'package:barber_shop_owner/core/providers/cloud_providers.dart';
-import 'package:barber_shop_owner/features/client_app/client_session.dart';
+import 'package:siz/core/cloud/cloud_auth.dart';
+import 'package:siz/core/providers/cloud_providers.dart';
+import 'package:siz/features/client_app/client_session.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 

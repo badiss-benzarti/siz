@@ -1,10 +1,10 @@
-import 'package:barber_shop_owner/core/cloud/cloud_auth.dart';
-import 'package:barber_shop_owner/core/errors/app_exception.dart';
-import 'package:barber_shop_owner/core/providers/cloud_providers.dart';
-import 'package:barber_shop_owner/core/sync/sync_engine.dart';
-import 'package:barber_shop_owner/features/barber_app/barber_link.dart';
-import 'package:barber_shop_owner/features/barber_app/barber_session.dart';
-import 'package:barber_shop_owner/features/barbers/domain/barber.dart';
+import 'package:siz/core/cloud/cloud_auth.dart';
+import 'package:siz/core/errors/app_exception.dart';
+import 'package:siz/core/providers/cloud_providers.dart';
+import 'package:siz/core/sync/sync_engine.dart';
+import 'package:siz/features/barber_app/barber_link.dart';
+import 'package:siz/features/barber_app/barber_session.dart';
+import 'package:siz/features/barbers/domain/barber.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 

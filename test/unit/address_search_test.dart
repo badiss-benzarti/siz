@@ -1,5 +1,5 @@
-import 'package:barber_shop_owner/core/errors/app_exception.dart';
-import 'package:barber_shop_owner/core/maps/address_search.dart';
+import 'package:siz/core/errors/app_exception.dart';
+import 'package:siz/core/maps/address_search.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';

@@ -1,10 +1,10 @@
-import 'package:barber_shop_owner/core/ui/ui_helpers.dart';
-import 'package:barber_shop_owner/features/auth_onboarding/presentation/auth_providers.dart';
-import 'package:barber_shop_owner/features/floor_plan/domain/station.dart';
-import 'package:barber_shop_owner/features/floor_plan/presentation/floor_plan_providers.dart';
-import 'package:barber_shop_owner/features/floor_plan/presentation/widgets/floor_modals.dart';
-import 'package:barber_shop_owner/features/floor_plan/presentation/widgets/room/room_view.dart';
-import 'package:barber_shop_owner/features/queue/presentation/queue_providers.dart';
+import 'package:siz/core/ui/ui_helpers.dart';
+import 'package:siz/features/auth_onboarding/presentation/auth_providers.dart';
+import 'package:siz/features/floor_plan/domain/station.dart';
+import 'package:siz/features/floor_plan/presentation/floor_plan_providers.dart';
+import 'package:siz/features/floor_plan/presentation/widgets/floor_modals.dart';
+import 'package:siz/features/floor_plan/presentation/widgets/room/room_view.dart';
+import 'package:siz/features/queue/presentation/queue_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';

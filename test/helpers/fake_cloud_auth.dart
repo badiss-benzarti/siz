@@ -1,5 +1,5 @@
-import 'package:barber_shop_owner/core/cloud/cloud_auth.dart';
-import 'package:barber_shop_owner/core/errors/app_exception.dart';
+import 'package:siz/core/cloud/cloud_auth.dart';
+import 'package:siz/core/errors/app_exception.dart';
 
 const offlineError = AppException('No internet connection.');
 

@@ -1,15 +1,15 @@
 import 'dart:io';
 
-import 'package:barber_shop_owner/core/database/database_service.dart';
-import 'package:barber_shop_owner/core/repositories/barber_repository.dart';
-import 'package:barber_shop_owner/core/repositories/finance_repository.dart';
-import 'package:barber_shop_owner/core/repositories/floor_plan_repository.dart';
-import 'package:barber_shop_owner/core/repositories/queue_repository.dart';
-import 'package:barber_shop_owner/core/repositories/shop_repository.dart';
-import 'package:barber_shop_owner/core/security/password_hasher.dart';
-import 'package:barber_shop_owner/core/security/session_storage.dart';
-import 'package:barber_shop_owner/features/auth_onboarding/domain/shop_profile.dart';
-import 'package:barber_shop_owner/features/barbers/domain/barber.dart';
+import 'package:siz/core/database/database_service.dart';
+import 'package:siz/core/repositories/barber_repository.dart';
+import 'package:siz/core/repositories/finance_repository.dart';
+import 'package:siz/core/repositories/floor_plan_repository.dart';
+import 'package:siz/core/repositories/queue_repository.dart';
+import 'package:siz/core/repositories/shop_repository.dart';
+import 'package:siz/core/security/password_hasher.dart';
+import 'package:siz/core/security/session_storage.dart';
+import 'package:siz/features/auth_onboarding/domain/shop_profile.dart';
+import 'package:siz/features/barbers/domain/barber.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 /// All repositories wired to one fresh database: one simulated device.

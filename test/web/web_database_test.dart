@@ -1,8 +1,8 @@
 @TestOn('browser')
 library;
 
-import 'package:barber_shop_owner/core/database/database_service.dart';
-import 'package:barber_shop_owner/core/security/password_hasher.dart';
+import 'package:siz/core/database/database_service.dart';
+import 'package:siz/core/security/password_hasher.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';

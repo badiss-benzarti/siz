@@ -1,4 +1,4 @@
-import 'package:barber_shop_owner/features/floor_plan/presentation/widgets/waiting_couch_widget.dart';
+import 'package:siz/features/floor_plan/presentation/widgets/waiting_couch_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

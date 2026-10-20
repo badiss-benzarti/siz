@@ -1,4 +1,4 @@
-import 'package:barber_shop_owner/features/floor_plan/domain/station.dart';
+import 'package:siz/features/floor_plan/domain/station.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

@@ -1,6 +1,6 @@
-import 'package:barber_shop_owner/core/errors/app_exception.dart';
-import 'package:barber_shop_owner/core/sync/sync_engine.dart';
-import 'package:barber_shop_owner/features/auth_onboarding/domain/shop_profile.dart';
+import 'package:siz/core/errors/app_exception.dart';
+import 'package:siz/core/sync/sync_engine.dart';
+import 'package:siz/features/auth_onboarding/domain/shop_profile.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers/fake_sync_server.dart';

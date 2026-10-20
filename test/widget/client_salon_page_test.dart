@@ -1,7 +1,7 @@
-import 'package:barber_shop_owner/core/theme/app_theme.dart';
-import 'package:barber_shop_owner/core/ui/ui_helpers.dart';
-import 'package:barber_shop_owner/features/client_app/client_directory.dart';
-import 'package:barber_shop_owner/features/client_app/client_salon_page.dart';
+import 'package:siz/core/theme/app_theme.dart';
+import 'package:siz/core/ui/ui_helpers.dart';
+import 'package:siz/features/client_app/client_directory.dart';
+import 'package:siz/features/client_app/client_salon_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

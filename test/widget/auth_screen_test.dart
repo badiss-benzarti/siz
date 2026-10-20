@@ -1,5 +1,5 @@
-import 'package:barber_shop_owner/features/auth_onboarding/presentation/auth_providers.dart';
-import 'package:barber_shop_owner/features/auth_onboarding/presentation/screens/auth_screen.dart';
+import 'package:siz/features/auth_onboarding/presentation/auth_providers.dart';
+import 'package:siz/features/auth_onboarding/presentation/screens/auth_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

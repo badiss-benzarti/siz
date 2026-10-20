@@ -1,5 +1,5 @@
-import 'package:barber_shop_owner/features/finance/domain/finance_summary.dart';
-import 'package:barber_shop_owner/features/finance/domain/service_ticket.dart';
+import 'package:siz/features/finance/domain/finance_summary.dart';
+import 'package:siz/features/finance/domain/service_ticket.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

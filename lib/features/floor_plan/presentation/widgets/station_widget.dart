@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:barber_shop_owner/features/floor_plan/domain/station.dart';
-import 'package:barber_shop_owner/features/floor_plan/presentation/widgets/room/station_painter.dart';
+import 'package:siz/features/floor_plan/domain/station.dart';
+import 'package:siz/features/floor_plan/presentation/widgets/room/station_painter.dart';
 import 'package:flutter/material.dart';
 
 /// One illustrated station in the room, with a name tag underneath.

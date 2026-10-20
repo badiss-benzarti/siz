@@ -1,15 +1,15 @@
-import 'package:barber_shop_owner/core/cloud/cloud_auth.dart';
-import 'package:barber_shop_owner/core/providers/cloud_providers.dart';
-import 'package:barber_shop_owner/core/theme/app_theme.dart';
-import 'package:barber_shop_owner/core/ui/ui_helpers.dart';
-import 'package:barber_shop_owner/features/barber_app/barber_earnings.dart';
-import 'package:barber_shop_owner/features/barber_app/barber_link.dart';
-import 'package:barber_shop_owner/features/barber_app/barber_salon.dart';
-import 'package:barber_shop_owner/features/barber_app/barber_screens.dart';
-import 'package:barber_shop_owner/features/barber_app/portfolio.dart';
-import 'package:barber_shop_owner/features/finance/domain/service_ticket.dart';
-import 'package:barber_shop_owner/features/floor_plan/domain/station.dart';
-import 'package:barber_shop_owner/features/queue/domain/queue_item.dart';
+import 'package:siz/core/cloud/cloud_auth.dart';
+import 'package:siz/core/providers/cloud_providers.dart';
+import 'package:siz/core/theme/app_theme.dart';
+import 'package:siz/core/ui/ui_helpers.dart';
+import 'package:siz/features/barber_app/barber_earnings.dart';
+import 'package:siz/features/barber_app/barber_link.dart';
+import 'package:siz/features/barber_app/barber_salon.dart';
+import 'package:siz/features/barber_app/barber_screens.dart';
+import 'package:siz/features/barber_app/portfolio.dart';
+import 'package:siz/features/finance/domain/service_ticket.dart';
+import 'package:siz/features/floor_plan/domain/station.dart';
+import 'package:siz/features/queue/domain/queue_item.dart';
 
 import 'dart:typed_data';
 
