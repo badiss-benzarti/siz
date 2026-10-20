@@ -165,7 +165,7 @@ class _BookingsTab extends ConsumerWidget {
                       ),
                     AsyncData(:final value) => Column(
                       children: [
-                        for (final b in value.reversed)
+                        for (final b in value)
                           _MyBookingCard(booking: b, clientId: user.id),
                       ],
                     ),

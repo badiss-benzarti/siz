@@ -281,112 +281,119 @@ class _BookingSheetState extends ConsumerState<_BookingSheet> {
           16,
           16 + MediaQuery.viewInsetsOf(context).bottom,
         ),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Book at ${details.salon.name}',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 14),
-              const _Label('Service'),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final s in details.services)
-                    ChoiceChip(
-                      label: Text('${s.name} · ${formatMoney(s.price)}'),
-                      selected: _service == s,
-                      onSelected: (_) => setState(() => _service = s),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              const _Label('Barber'),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  ChoiceChip(
-                    label: const Text('Any barber'),
-                    selected: _barber == null,
-                    onSelected: (_) => setState(() => _barber = null),
+        child: ChipTheme(
+          // Green, like the highlight on the salon floor.
+          data: ChipTheme.of(context).copyWith(
+            selectedColor: const Color(0xFFDCFCE7),
+            checkmarkColor: const Color(0xFF166534),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Book at ${details.salon.name}',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
                   ),
-                  for (final b in details.barbers)
-                    ChoiceChip(
-                      label: Text(b.name),
-                      selected: _barber == b,
-                      onSelected: (_) => setState(() => _barber = b),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              const _Label('Day'),
-              SizedBox(
-                height: 64,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
+                ),
+                const SizedBox(height: 14),
+                const _Label('Service'),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    for (final d in _days)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(DateFormat('EEE').format(d)),
-                              Text(
-                                DateFormat('d MMM').format(d),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ],
-                          ),
-                          selected: _day == d,
-                          onSelected: (_) => setState(() {
-                            _day = d;
-                            _time = null;
-                          }),
-                        ),
+                    for (final s in details.services)
+                      ChoiceChip(
+                        label: Text('${s.name} · ${formatMoney(s.price)}'),
+                        selected: _service == s,
+                        onSelected: (_) => setState(() => _service = s),
                       ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 14),
-              const _Label('Time'),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final t in slots)
+                const SizedBox(height: 14),
+                const _Label('Barber'),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
                     ChoiceChip(
-                      label: Text(t.format(context)),
-                      selected: _time == t,
-                      onSelected: (_) => setState(() => _time = t),
+                      label: const Text('Any barber'),
+                      selected: _barber == null,
+                      onSelected: (_) => setState(() => _barber = null),
                     ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: _ink,
-                  minimumSize: const Size(double.infinity, 50),
+                    for (final b in details.barbers)
+                      ChoiceChip(
+                        label: Text(b.name),
+                        selected: _barber == b,
+                        onSelected: (_) => setState(() => _barber = b),
+                      ),
+                  ],
                 ),
-                onPressed: _saving || _service == null || _time == null
-                    ? null
-                    : _submit,
-                child: Text(
-                  _time == null ? 'Pick a time' : 'Send booking request',
+                const SizedBox(height: 14),
+                const _Label('Day'),
+                SizedBox(
+                  height: 64,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      for (final d in _days)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(DateFormat('EEE').format(d)),
+                                Text(
+                                  DateFormat('d MMM').format(d),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            selected: _day == d,
+                            onSelected: (_) => setState(() {
+                              _day = d;
+                              _time = null;
+                            }),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 14),
+                const _Label('Time'),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final t in slots)
+                      ChoiceChip(
+                        label: Text(t.format(context)),
+                        selected: _time == t,
+                        onSelected: (_) => setState(() => _time = t),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _ink,
+                    minimumSize: const Size(double.infinity, 50),
+                  ),
+                  onPressed: _saving || _service == null || _time == null
+                      ? null
+                      : _submit,
+                  child: Text(
+                    _time == null ? 'Pick a time' : 'Send booking request',
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
