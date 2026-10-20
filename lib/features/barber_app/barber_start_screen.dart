@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../prototype/barber/barber_shell.dart';
 import '../welcome/entry_role.dart';
 import 'barber_session.dart';
 
@@ -182,16 +181,6 @@ class _BarberStartScreenState extends ConsumerState<BarberStartScreen> {
                           fontSize: 13,
                         ),
                       ),
-                    ),
-                    TextButton.icon(
-                      style: TextButton.styleFrom(foregroundColor: _muted),
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const BarberShell(),
-                        ),
-                      ),
-                      icon: const Icon(Icons.visibility_outlined, size: 18),
-                      label: const Text('See a preview of the barber space'),
                     ),
                   ],
                 ),

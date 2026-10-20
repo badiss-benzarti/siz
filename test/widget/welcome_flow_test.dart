@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:siz/app.dart';
-import 'package:siz/core/providers/cloud_providers.dart';
+import 'package:siz/core/providers/core_providers.dart';
 import 'package:siz/features/auth_onboarding/presentation/auth_providers.dart';
 import 'package:siz/features/client_app/client_directory.dart';
 import 'package:flutter/services.dart';
@@ -9,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers/fake_client_directory.dart';
-import '../helpers/fake_cloud_auth.dart';
+import '../helpers/fake_account_auth.dart';
 
 class _SignedOut extends AuthNotifier {
   @override
@@ -37,10 +37,10 @@ void main() {
       ProviderScope(
         overrides: [
           authProvider.overrideWith(_SignedOut.new),
-          cloudAuthProvider.overrideWithValue(FakeCloudAuth()),
+          accountAuthProvider.overrideWithValue(FakeAccountAuth()),
           clientDirectoryProvider.overrideWithValue(FakeClientDirectory()),
         ],
-        child: const BarberShopOwnerApp(),
+        child: const SizApp(),
       ),
     );
     await tester.pump();
@@ -63,18 +63,17 @@ void main() {
     expect(find.text('Enter your salon code'), findsOneWidget);
     expect(find.text('Already have an account? Sign in'), findsOneWidget);
     expect(find.text('Explore the demo shop'), findsNothing);
-    expect(find.text('See a preview of the barber space'), findsOneWidget);
     await tester.tap(find.text('Who are you?'));
     await tester.pump();
 
-    // Clients go straight to the map of salons, no account needed, and
+    // Clients go straight to the list of salons, no account needed, and
     // can go back from their profile.
     await tester.tap(find.text('Client'));
     for (var i = 0; i < 6; i++) {
       await tester.pump(const Duration(milliseconds: 200));
     }
-    expect(find.text('Map'), findsOneWidget);
-    expect(find.text('1 salon nearby'), findsOneWidget);
+    expect(find.text('Salons'), findsWidgets);
+    expect(find.text('1 salon'), findsOneWidget);
     expect(find.text('Blade & Crown'), findsOneWidget);
     await tester.tap(find.text('Profile'));
     await tester.pump(const Duration(milliseconds: 300));

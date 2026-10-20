@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:siz/core/auth/account_auth.dart';
 import 'package:siz/core/database/database_service.dart';
 import 'package:siz/core/repositories/barber_repository.dart';
 import 'package:siz/core/repositories/finance_repository.dart';
@@ -9,7 +10,10 @@ import 'package:siz/core/repositories/shop_repository.dart';
 import 'package:siz/core/security/password_hasher.dart';
 import 'package:siz/core/security/session_storage.dart';
 import 'package:siz/features/auth_onboarding/domain/shop_profile.dart';
+import 'package:siz/features/barber_app/barber_link.dart';
+import 'package:siz/features/barbers/data/barber_invites.dart';
 import 'package:siz/features/barbers/domain/barber.dart';
+import 'package:siz/features/client_app/client_activity.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 /// All repositories wired to one fresh database: one simulated device.
@@ -23,7 +27,16 @@ class TestEnv {
       barbers = BarberRepository(dbService: db),
       floor = FloorPlanRepository(dbService: db),
       finance = FinanceRepository(dbService: db),
-      queue = QueueRepository(dbService: db);
+      queue = QueueRepository(dbService: db),
+      auth = LocalAccountAuth(
+        db: db,
+        hasher: const PasswordHasher(iterations: 1000),
+        session: session,
+      ),
+      invites = BarberInvites(db),
+      activity = ClientActivityRepository(db) {
+    links = LocalBarberLinkRepository(db, auth);
+  }
 
   static Future<TestEnv> create() async {
     sqfliteFfiInit();
@@ -44,6 +57,10 @@ class TestEnv {
   final FloorPlanRepository floor;
   final FinanceRepository finance;
   final QueueRepository queue;
+  final LocalAccountAuth auth;
+  final BarberInvites invites;
+  final ClientActivityRepository activity;
+  late final LocalBarberLinkRepository links;
   final Directory _dir;
 
   Future<void> dispose() async {

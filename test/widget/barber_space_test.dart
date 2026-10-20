@@ -1,5 +1,6 @@
-import 'package:siz/core/cloud/cloud_auth.dart';
-import 'package:siz/core/providers/cloud_providers.dart';
+import 'package:siz/core/auth/account_auth.dart';
+import 'package:siz/core/database/database_service.dart';
+import 'package:siz/core/providers/core_providers.dart';
 import 'package:siz/core/theme/app_theme.dart';
 import 'package:siz/core/ui/ui_helpers.dart';
 import 'package:siz/features/barber_app/barber_earnings.dart';
@@ -7,6 +8,7 @@ import 'package:siz/features/barber_app/barber_link.dart';
 import 'package:siz/features/barber_app/barber_salon.dart';
 import 'package:siz/features/barber_app/barber_screens.dart';
 import 'package:siz/features/barber_app/portfolio.dart';
+import 'package:siz/features/client_app/client_activity.dart';
 import 'package:siz/features/finance/domain/service_ticket.dart';
 import 'package:siz/features/floor_plan/domain/station.dart';
 import 'package:siz/features/queue/domain/queue_item.dart';
@@ -17,7 +19,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../helpers/fake_cloud_auth.dart';
+import '../helpers/fake_account_auth.dart';
+
+/// No bookings, without opening a database.
+class _NoBookings extends ClientActivityRepository {
+  _NoBookings() : super(DatabaseService());
+
+  @override
+  Future<List<Booking>> barberBookings(String shopId, String barberId) async =>
+      const [];
+}
 
 class _Links implements BarberLinkRepository {
   BarberLink link = _sami(onDuty: true);
@@ -184,8 +195,8 @@ void main() {
     tester.view.devicePixelRatio = 2.6;
     addTearDown(tester.view.reset);
 
-    final auth = FakeCloudAuth()
-      ..currentUser = const CloudUser(
+    final auth = FakeAccountAuth()
+      ..currentUser = const AppUser(
         id: 'u1',
         email: 'sami@test.tn',
         fullName: 'Sami',
@@ -197,11 +208,12 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          cloudAuthProvider.overrideWithValue(auth),
+          accountAuthProvider.overrideWithValue(auth),
           barberLinkRepositoryProvider.overrideWithValue(links),
           barberSalonRepositoryProvider.overrideWithValue(salon),
           barberEarningsRepositoryProvider.overrideWithValue(_Earnings()),
           portfolioRepositoryProvider.overrideWithValue(_Portfolio()),
+          clientActivityProvider.overrideWithValue(_NoBookings()),
         ],
         child: MaterialApp(
           theme: AppTheme.lightTheme,

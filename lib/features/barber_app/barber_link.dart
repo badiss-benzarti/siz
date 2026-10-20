@@ -1,7 +1,11 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sqflite/sqflite.dart';
 
-import '../../core/cloud/cloud_errors.dart';
+import '../../core/auth/account_auth.dart';
+import '../../core/database/database_service.dart';
 import '../../core/errors/app_exception.dart';
+import '../../core/providers/core_providers.dart';
+import '../barbers/data/barber_invites.dart';
 
 /// A barber account's place in a salon: the roster entry it is linked to.
 class BarberLink {
@@ -43,7 +47,7 @@ class InvitePreview {
   final String barberName;
 }
 
-/// Server access for barber accounts. Failures are thrown as [AppException].
+/// Barber accounts and their salon. Failures are thrown as [AppException].
 abstract class BarberLinkRepository {
   /// The salon this account is linked to, or null before joining one.
   Future<BarberLink?> myLink(String userId);
@@ -61,55 +65,70 @@ abstract class BarberLinkRepository {
   Future<void> leave();
 }
 
-class SupabaseBarberLinkRepository implements BarberLinkRepository {
-  SupabaseBarberLinkRepository(this._client);
+/// [BarberLinkRepository] on this device's database.
+class LocalBarberLinkRepository implements BarberLinkRepository {
+  LocalBarberLinkRepository(this._db, this._auth);
 
-  final SupabaseClient _client;
+  final DatabaseService _db;
+  final AccountAuth _auth;
 
   @override
   Future<BarberLink?> myLink(String userId) async {
-    try {
-      final row = await _client
-          .from('barbers')
-          .select(
-            'id, name, requested_name, shop_id, assigned_chair, is_on_duty, '
-            'shops(name), barber_private(commission_rate)',
-          )
-          .eq('profile_id', userId)
-          .eq('is_archived', false)
-          .maybeSingle();
-      if (row == null) return null;
-      final shop = _embedded(row['shops']);
-      final private = _embedded(row['barber_private']);
-      return BarberLink(
-        barberId: row['id'] as String,
-        barberName: row['name'] as String,
-        shopId: row['shop_id'] as String,
-        shopName: shop?['name'] as String? ?? '',
-        commissionRate: (private?['commission_rate'] as num?)?.toDouble() ?? 0,
-        isOnDuty: row['is_on_duty'] as bool,
-        assignedChair: row['assigned_chair'] as int?,
-        requestedName: row['requested_name'] as String?,
-      );
-    } catch (e) {
-      throw cloudException(e);
-    }
+    final db = await _db.database;
+    final rows = await db.rawQuery(
+      '''
+      SELECT b.*, s.name AS shop_name
+      FROM barbers b JOIN shops s ON s.id = b.shop_id
+      WHERE b.profile_id = ? AND b.is_archived = 0
+      LIMIT 1
+    ''',
+      [userId],
+    );
+    if (rows.isEmpty) return null;
+    final r = rows.first;
+    return BarberLink(
+      barberId: r['id'] as String,
+      barberName: r['name'] as String,
+      shopId: r['shop_id'] as String,
+      shopName: r['shop_name'] as String,
+      commissionRate: (r['commission_rate'] as num).toDouble(),
+      isOnDuty: r['is_on_duty'] == 1,
+      assignedChair: r['assigned_chair'] as int?,
+      requestedName: r['requested_name'] as String?,
+    );
   }
 
   @override
   Future<BarberLink> join(String userId, String code) async {
-    final cleaned = normalizeCode(code);
-    if (cleaned.length != 8) {
-      throw const AppException('The code has 8 characters.');
-    }
-    try {
-      await _client.rpc<dynamic>(
-        'join_with_invite',
-        params: {'p_code': cleaned},
+    final cleaned = _checkedCode(code);
+    final db = await _db.database;
+    await db.transaction((txn) async {
+      final linked = await txn.query(
+        'barbers',
+        columns: ['id'],
+        where: 'profile_id = ? AND is_archived = 0',
+        whereArgs: [userId],
       );
-    } catch (e) {
-      throw cloudException(e);
-    }
+      if (linked.isNotEmpty) {
+        throw const AppException(
+          'You already belong to a salon. Leave it first.',
+        );
+      }
+      final invite = await _openInvite(txn, cleaned);
+      if (invite == null) throw const AppException(_invalidCode);
+      await txn.update(
+        'barbers',
+        {'profile_id': userId},
+        where: 'id = ?',
+        whereArgs: [invite['barber_id']],
+      );
+      await txn.update(
+        'barber_invites',
+        {'used_at': DateTime.now().toIso8601String()},
+        where: 'code = ?',
+        whereArgs: [cleaned],
+      );
+    });
     final link = await myLink(userId);
     if (link == null) {
       throw const AppException('Could not join the salon. Please try again.');
@@ -119,57 +138,118 @@ class SupabaseBarberLinkRepository implements BarberLinkRepository {
 
   @override
   Future<InvitePreview?> preview(String code) async {
-    final cleaned = normalizeCode(code);
-    if (cleaned.length != 8) {
-      throw const AppException('The code has 8 characters.');
-    }
-    try {
-      final rows = await _client.rpc<List<dynamic>>(
-        'preview_invite',
-        params: {'p_code': cleaned},
-      );
-      if (rows.isEmpty) return null;
-      final row = rows.first as Map<String, dynamic>;
-      return InvitePreview(
-        code: cleaned,
-        shopName: row['shop_name'] as String,
-        barberName: row['barber_name'] as String,
-      );
-    } catch (e) {
-      throw cloudException(e);
-    }
+    final cleaned = _checkedCode(code);
+    final db = await _db.database;
+    final row = await _openInvite(db, cleaned);
+    if (row == null) return null;
+    return InvitePreview(
+      code: cleaned,
+      shopName: row['shop_name'] as String,
+      barberName: row['barber_name'] as String,
+    );
   }
 
   @override
   Future<void> requestNameChange(String name) async {
-    try {
-      await _client.rpc<dynamic>(
-        'request_name_change',
-        params: {'p_name': name},
-      );
-    } catch (e) {
-      throw cloudException(e);
-    }
+    final wanted = name.trim();
+    if (wanted.isEmpty) throw const AppException('Please enter a name.');
+    final db = await _db.database;
+    await db.update(
+      'barbers',
+      {'requested_name': wanted},
+      where: 'profile_id = ? AND is_archived = 0',
+      whereArgs: [_userId],
+    );
   }
 
   @override
   Future<void> leave() async {
-    try {
-      await _client.rpc<dynamic>('leave_salon');
-    } catch (e) {
-      throw cloudException(e);
+    final userId = _userId;
+    final db = await _db.database;
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        'barbers',
+        columns: ['id'],
+        where: 'profile_id = ? AND is_archived = 0',
+        whereArgs: [userId],
+      );
+      if (rows.isEmpty) return;
+      final barberId = rows.first['id'] as String;
+      final serving = await txn.query(
+        'chairs',
+        columns: ['chair_number'],
+        where: "active_barber_id = ? AND status = 'occupied'",
+        whereArgs: [barberId],
+      );
+      if (serving.isNotEmpty) {
+        throw const AppException(
+          'You are serving a client. Finish the service before leaving.',
+        );
+      }
+      await txn.update(
+        'chairs',
+        {'status': 'empty', 'active_barber_id': null},
+        where: 'active_barber_id = ?',
+        whereArgs: [barberId],
+      );
+      // The salon keeps the roster entry and its history.
+      await txn.update(
+        'barbers',
+        {
+          'profile_id': null,
+          'requested_name': null,
+          'is_on_duty': 0,
+          'assigned_chair': null,
+        },
+        where: 'id = ?',
+        whereArgs: [barberId],
+      );
+    });
+  }
+
+  String get _userId {
+    final user = _auth.currentUser;
+    if (user == null) throw const AppException('Please sign in again.');
+    return user.id;
+  }
+
+  static const _invalidCode =
+      'This code is not valid or has expired. Ask your salon for a new one.';
+
+  static String _checkedCode(String code) {
+    final cleaned = normalizeCode(code);
+    if (cleaned.length != 8) {
+      throw const AppException('The code has 8 characters.');
     }
+    return cleaned;
+  }
+
+  /// The unused, unexpired invite [code] for a barber without an account.
+  static Future<Map<String, Object?>?> _openInvite(
+    DatabaseExecutor db,
+    String code,
+  ) async {
+    final rows = await db.rawQuery(
+      '''
+      SELECT i.barber_id, b.name AS barber_name, s.name AS shop_name
+      FROM barber_invites i
+      JOIN barbers b ON b.id = i.barber_id
+      JOIN shops s ON s.id = b.shop_id
+      WHERE i.code = ? AND i.used_at IS NULL AND i.expires_at > ?
+        AND b.is_archived = 0 AND b.profile_id IS NULL
+    ''',
+      [code, DateTime.now().toIso8601String()],
+    );
+    return rows.isEmpty ? null : rows.first;
   }
 
   /// Upper case, without spaces or dashes.
-  static String normalizeCode(String code) =>
-      code.replaceAll(RegExp(r'[\s-]'), '').toUpperCase();
-
-  /// One-to-one / many-to-one embeds come back as an object (older servers:
-  /// a list).
-  static Map<String, dynamic>? _embedded(Object? value) => switch (value) {
-    Map<String, dynamic> m => m,
-    [Map<String, dynamic> m, ...] => m,
-    _ => null,
-  };
+  static String normalizeCode(String code) => BarberInvites.normalizeCode(code);
 }
+
+final barberLinkRepositoryProvider = Provider<BarberLinkRepository>((ref) {
+  return LocalBarberLinkRepository(
+    ref.watch(databaseServiceProvider),
+    ref.watch(accountAuthProvider),
+  );
+});

@@ -5,7 +5,7 @@ import '../../../core/providers/core_providers.dart';
 import '../../../core/repositories/finance_repository.dart';
 import '../../auth_onboarding/presentation/auth_providers.dart';
 import '../domain/finance_summary.dart';
-import '../../../core/sync/sync_revision.dart';
+import '../../../core/providers/data_revision.dart';
 
 final financeRepositoryProvider = Provider<FinanceRepository>((ref) {
   return FinanceRepository(dbService: ref.watch(databaseServiceProvider));
@@ -74,7 +74,7 @@ final financeRangeProvider =
 class FinanceNotifier extends AsyncNotifier<FinanceSummary> {
   @override
   Future<FinanceSummary> build() async {
-    ref.watch(syncRevisionProvider);
+    ref.watch(dataRevisionProvider);
     final shopId = ref.watch(currentShopIdProvider);
     final range = ref.watch(financeRangeProvider);
     if (shopId == null) return FinanceSummary.fromTickets(const []);

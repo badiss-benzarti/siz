@@ -5,10 +5,8 @@ import '../database/database_service.dart';
 import '../errors/app_exception.dart';
 import '../security/password_hasher.dart';
 import '../security/session_storage.dart';
-import '../sync/sync_schema.dart';
 import '../../features/auth_onboarding/domain/owner_account.dart';
 import '../../features/auth_onboarding/domain/shop_profile.dart';
-import '../../features/auth_onboarding/domain/shop_snapshot.dart';
 import '../../features/barbers/domain/barber.dart';
 
 class ShopRepository {
@@ -69,8 +67,8 @@ class ShopRepository {
       createdAt: DateTime.now(),
     );
 
-    await db.insert('owners', owner.toMap());
-    await _sessionStorage.writeActiveOwnerId(owner.id);
+    await db.insert('owners', {...owner.toMap(), 'role': 'owner'});
+    await _sessionStorage.writeActiveAccountId(owner.id);
     return owner;
   }
 
@@ -82,7 +80,7 @@ class ShopRepository {
     final db = await _dbService.database;
     final results = await db.query(
       'owners',
-      where: 'email = ?',
+      where: "email = ? AND role = 'owner'",
       whereArgs: [normalizeEmail(email)],
     );
     if (results.isEmpty) {
@@ -90,10 +88,6 @@ class ShopRepository {
     }
 
     var owner = OwnerAccount.fromMap(results.first);
-    // Cloud accounts have no password on the device.
-    if (owner.isCloudAccount) {
-      throw const AppException('Invalid email or password.');
-    }
     final valid = await _passwordHasher.verify(
       password,
       owner.salt,
@@ -119,13 +113,13 @@ class ShopRepository {
       });
     }
 
-    await _sessionStorage.writeActiveOwnerId(owner.id);
+    await _sessionStorage.writeActiveAccountId(owner.id);
     return owner;
   }
 
   /// Gets the currently signed-in owner, if any.
   Future<OwnerAccount?> getActiveOwner() async {
-    final activeOwnerId = await _sessionStorage.readActiveOwnerId();
+    final activeOwnerId = await _sessionStorage.readActiveAccountId();
     if (activeOwnerId == null) return null;
 
     final db = await _dbService.database;
@@ -144,150 +138,15 @@ class ShopRepository {
 
   Future<void> logout() => _sessionStorage.clear();
 
-  // ---------------------------------------------------------------------------
-  // Cloud accounts
-  //
-  // Cloud accounts are verified by the server; this device keeps a password-
-  // less copy of the owner so their salon can be used offline. Accounts with
-  // a password hash here are device-only (created before cloud accounts, and
-  // the demo shop).
-  // ---------------------------------------------------------------------------
-
-  /// Whether [email] belongs to a device-only account.
-  Future<bool> hasDeviceOnlyAccount(String email) async {
+  /// The owner account [id], or null if it is not an owner.
+  Future<OwnerAccount?> getOwner(String id) async {
     final db = await _dbService.database;
     final rows = await db.query(
       'owners',
-      columns: ['password_hash'],
-      where: 'email = ?',
-      whereArgs: [normalizeEmail(email)],
+      where: "id = ? AND role = 'owner'",
+      whereArgs: [id],
     );
-    return rows.isNotEmpty &&
-        (rows.first['password_hash'] as String).isNotEmpty;
-  }
-
-  /// Signs in the cloud account [id] on this device. A device-only account
-  /// with the same email becomes this cloud account and keeps its salon.
-  Future<OwnerAccount> signInCloudOwner({
-    required String id,
-    required String email,
-    required String fullName,
-  }) async {
-    final normalizedEmail = normalizeEmail(email);
-    final name = fullName.trim().isNotEmpty
-        ? fullName.trim()
-        : normalizedEmail.split('@').first;
-    final db = await _dbService.database;
-
-    await db.transaction((txn) async {
-      final known = await txn.query(
-        'owners',
-        columns: ['id'],
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-      if (known.isNotEmpty) return;
-
-      final sameEmail = await txn.query(
-        'owners',
-        columns: ['id'],
-        where: 'email = ?',
-        whereArgs: [normalizedEmail],
-      );
-      if (sameEmail.isEmpty) {
-        await txn.insert('owners', {
-          'id': id,
-          'email': normalizedEmail,
-          'password_hash': '',
-          'salt': '',
-          'full_name': name,
-          'created_at': DateTime.now().toIso8601String(),
-        });
-        return;
-      }
-
-      // Re-key the device-only account; checked at commit.
-      final oldId = sameEmail.first['id'] as String;
-      await txn.execute('PRAGMA defer_foreign_keys = ON');
-      await txn.update(
-        'shops',
-        {'owner_id': id},
-        where: 'owner_id = ?',
-        whereArgs: [oldId],
-      );
-      await txn.update(
-        'owners',
-        {'id': id, 'password_hash': '', 'salt': ''},
-        where: 'id = ?',
-        whereArgs: [oldId],
-      );
-    });
-
-    await _sessionStorage.writeActiveOwnerId(id);
-    final rows = await db.query('owners', where: 'id = ?', whereArgs: [id]);
-    return OwnerAccount.fromMap(rows.first);
-  }
-
-  /// The salon's setup as stored on this device.
-  Future<ShopSnapshot?> loadSnapshot(String ownerId) async {
-    final shop = await getShopProfileByOwnerId(ownerId);
-    if (shop == null) return null;
-    final db = await _dbService.database;
-    final barbers = await db.query(
-      'barbers',
-      where: 'shop_id = ?',
-      whereArgs: [shop.id],
-      orderBy: 'created_at ASC',
-    );
-    return ShopSnapshot(
-      shop: shop,
-      barbers: barbers.map(Barber.fromMap).toList(),
-    );
-  }
-
-  /// Stores a salon downloaded from the cloud on this device.
-  Future<ShopProfile> importSnapshot(ShopSnapshot snapshot) async {
-    final shop = snapshot.shop;
-    final db = await _dbService.database;
-    // Came from the server: not queued to be sent back.
-    await db.transaction(
-      (txn) =>
-          SyncSchema.applyingRemote(txn, () => _insertSnapshot(txn, snapshot)),
-    );
-    return (await getShopProfileByOwnerId(shop.ownerId))!;
-  }
-
-  Future<void> _insertSnapshot(Transaction txn, ShopSnapshot snapshot) async {
-    final shop = snapshot.shop;
-    await txn.insert('shops', shop.toMap());
-    for (int i = 1; i <= shop.totalChairs; i++) {
-      await txn.insert('chairs', {
-        'chair_number': i,
-        'shop_id': shop.id,
-        'status': 'empty',
-      });
-    }
-    for (final barber in snapshot.barbers) {
-      await txn.insert('barbers', barber.copyWith(shopId: shop.id).toMap());
-      final chair = barber.assignedChair;
-      if (chair != null && !barber.isArchived) {
-        await txn.update(
-          'chairs',
-          {'status': 'available', 'active_barber_id': barber.id},
-          where: 'shop_id = ? AND chair_number = ?',
-          whereArgs: [shop.id, chair],
-        );
-      }
-    }
-    for (final service in shop.services) {
-      await txn.insert('services', {...service.toMap(), 'shop_id': shop.id});
-    }
-  }
-
-  /// Removes a salon and everything in it from this device.
-  Future<void> deleteShopLocally(String shopId) async {
-    final db = await _dbService.database;
-    await db.delete('shops', where: 'id = ?', whereArgs: [shopId]);
+    return rows.isEmpty ? null : OwnerAccount.fromMap(rows.first);
   }
 
   /// Creates the shop with its chairs, initial barbers and services.
@@ -299,14 +158,9 @@ class ShopRepository {
     required int totalChairs,
     required List<Barber> initialBarbers,
     required List<ServiceItem> services,
-    double? latitude,
-    double? longitude,
   }) async {
     _validateShopDetails(name: name, address: address, phone: phone);
     _validateChairCount(totalChairs);
-    if (latitude != null && longitude != null) {
-      _validateLocation(latitude, longitude);
-    }
     for (final service in services) {
       _validateService(service.name, service.price, service.durationMinutes);
     }
@@ -326,10 +180,8 @@ class ShopRepository {
         'phone': phone.trim(),
         'total_chairs': totalChairs,
         'created_at': DateTime.now().toIso8601String(),
-        if (latitude != null && longitude != null) ...{
-          'latitude': latitude,
-          'longitude': longitude,
-        },
+        // New salons are shown to clients; the owner can hide theirs.
+        'is_listed': 1,
       });
 
       for (int i = 1; i <= totalChairs; i++) {
@@ -490,23 +342,8 @@ class ShopRepository {
   }
 
   // ---------------------------------------------------------------------------
-  // Client map
+  // What clients see
   // ---------------------------------------------------------------------------
-
-  Future<void> updateShopLocation({
-    required String shopId,
-    required double latitude,
-    required double longitude,
-  }) async {
-    _validateLocation(latitude, longitude);
-    final db = await _dbService.database;
-    await db.update(
-      'shops',
-      {'latitude': latitude, 'longitude': longitude},
-      where: 'id = ?',
-      whereArgs: [shopId],
-    );
-  }
 
   Future<void> setShopOpen({
     required String shopId,
@@ -521,25 +358,12 @@ class ShopRepository {
     );
   }
 
-  /// Shows or hides the salon on the client map. Needs a location first.
+  /// Shows or hides the salon in the clients' list of salons.
   Future<void> setShopListed({
     required String shopId,
     required bool isListed,
   }) async {
     final db = await _dbService.database;
-    if (isListed) {
-      final rows = await db.query(
-        'shops',
-        columns: ['latitude', 'longitude'],
-        where: 'id = ?',
-        whereArgs: [shopId],
-      );
-      if (rows.isEmpty ||
-          rows.first['latitude'] == null ||
-          rows.first['longitude'] == null) {
-        throw const AppException('Place your salon on the map first.');
-      }
-    }
     await db.update(
       'shops',
       {'is_listed': isListed ? 1 : 0},
@@ -628,15 +452,6 @@ class ShopRepository {
   }) {
     if (name.trim().isEmpty || address.trim().isEmpty || phone.trim().isEmpty) {
       throw const AppException('Shop name, address and phone are required.');
-    }
-  }
-
-  void _validateLocation(double latitude, double longitude) {
-    if (latitude.isNaN ||
-        longitude.isNaN ||
-        latitude.abs() > 90 ||
-        longitude.abs() > 180) {
-      throw const AppException('This location is not valid.');
     }
   }
 

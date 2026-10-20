@@ -44,8 +44,9 @@ void main() {
     expect(find.textContaining('#1 · Sami'), findsOneWidget);
     expect(find.textContaining('#2 · Karim'), findsOneWidget);
     expect(find.text('2 clients waiting'), findsOneWidget);
-    expect(find.text('2 waiting'), findsOneWidget);
-    expect(find.text('2 barbers on duty'), findsOneWidget);
+    expect(find.text('2 waiting · 2 barbers on duty'), findsOneWidget);
+    expect(find.text('Join the line'), findsOneWidget);
+    expect(find.text('Book'), findsOneWidget);
 
     // Barbers: visit ratings, or "New".
     await tester.tap(find.text('Barbers'));

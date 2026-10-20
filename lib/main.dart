@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
-import 'core/config/supabase_config.dart';
+import 'core/auth/account_auth.dart';
+import 'core/providers/core_providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Restores the cloud session saved on this device; needs no network.
-  await Supabase.initialize(
-    url: SupabaseConfig.url,
-    publishableKey: SupabaseConfig.publishableKey,
+  // Everything is on this phone: the SQLite database (picked per platform
+  // by DatabaseService) and the signed-in account, restored here.
+  final container = ProviderContainer();
+  final auth = container.read(accountAuthProvider);
+  if (auth is LocalAccountAuth) await auth.restore();
+  runApp(
+    UncontrolledProviderScope(container: container, child: const SizApp()),
   );
-  // The SQLite engine for each platform is selected by DatabaseService.
-  runApp(const ProviderScope(child: BarberShopOwnerApp()));
 }

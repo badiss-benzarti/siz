@@ -34,7 +34,7 @@ void main() {
       );
       expect(owner.email, 'owner@example.com');
       expect(owner.passwordHash, startsWith('pbkdf2-sha256\$'));
-      expect(await env.session.readActiveOwnerId(), owner.id);
+      expect(await env.session.readActiveAccountId(), owner.id);
     });
 
     test('duplicate email, weak password and bad email are rejected', () async {
@@ -85,7 +85,7 @@ void main() {
         email: 'A@B.CO',
         password: 'password123',
       );
-      expect(await env.session.readActiveOwnerId(), owner.id);
+      expect(await env.session.readActiveAccountId(), owner.id);
     });
 
     test('legacy SHA-256 accounts can log in and are upgraded', () async {
@@ -117,9 +117,9 @@ void main() {
     });
 
     test('a session pointing at a missing owner is cleared', () async {
-      await env.session.writeActiveOwnerId('ghost');
+      await env.session.writeActiveAccountId('ghost');
       expect(await env.shops.getActiveOwner(), isNull);
-      expect(await env.session.readActiveOwnerId(), isNull);
+      expect(await env.session.readActiveAccountId(), isNull);
     });
   });
 
@@ -419,6 +419,7 @@ void main() {
               'created_at TEXT NOT NULL)',
             );
             for (final t in [
+              'owners',
               'tickets',
               'queue',
               'shops',
@@ -453,6 +454,8 @@ void main() {
       expect(await db.getVersion(), DatabaseService.schemaVersion);
       final row = (await db.query('barbers')).single;
       expect(row['is_archived'], 0);
+      expect(row['specialty'], '');
+      expect(await db.query('bookings'), isEmpty);
     });
   });
 }

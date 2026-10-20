@@ -27,6 +27,7 @@ class QueueRepository {
     String? clientPhone,
     String? requestedBarberId,
     String? notes,
+    String? clientId,
   }) async {
     if (clientName.trim().isEmpty) {
       throw const AppException('Client name is required.');
@@ -43,7 +44,7 @@ class QueueRepository {
       createdAt: DateTime.now(),
     );
 
-    await db.insert('queue', item.toMap());
+    await db.insert('queue', {...item.toMap(), 'client_id': clientId});
     return item;
   }
 

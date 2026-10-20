@@ -6,6 +6,7 @@ import '../../core/errors/app_exception.dart';
 import '../../core/ui/dashboard_widgets.dart';
 import '../../core/ui/room_navigation_bar.dart';
 import '../../core/ui/ui_helpers.dart';
+import '../bookings/salon_bookings.dart';
 import '../floor_plan/domain/station.dart';
 import '../floor_plan/presentation/widgets/room/room_view.dart';
 import '../queue/domain/queue_item.dart';
@@ -210,6 +211,16 @@ class _AgendaTab extends ConsumerWidget {
               AsyncError(:final error) => EmptyBox(describeError(error)),
               _ => const EmptyBox('Loading…'),
             },
+            const SectionHeading('My bookings'),
+            SalonBookingsList(
+              bookings: ref.watch(
+                barberBookingsProvider((
+                  shopId: me.shopId,
+                  barberId: me.barberId,
+                )),
+              ),
+              emptyMessage: 'No bookings for you yet.',
+            ),
             SectionHeading(
               switch (floor) {
                 AsyncData(:final value) => 'Waiting (${value.queue.length})',
@@ -411,7 +422,7 @@ class _LoadError extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_off_outlined, size: 48, color: Colors.grey),
+            const Icon(Icons.error_outline, size: 48, color: Colors.grey),
             const SizedBox(height: 12),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 12),

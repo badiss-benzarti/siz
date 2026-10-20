@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../floor_plan/presentation/widgets/room/salon_sign.dart';
+import 'demo_accounts_sheet.dart';
 import 'entry_role.dart';
 
 /// First screen of the app when nobody is signed in: "Who are you?".
 ///
 /// Owners and barbers continue to their sign-in; clients go straight to the
-/// map and may sign in later.
+/// list of salons and may sign in later. "Try the demo" signs in to ready-made
+/// accounts.
 class WelcomeScreen extends ConsumerWidget {
   const WelcomeScreen({super.key});
 
@@ -60,10 +62,20 @@ class WelcomeScreen extends ConsumerWidget {
                 _RoleCard(
                   icon: Icons.person_search_outlined,
                   title: 'Client',
-                  subtitle: 'Find a salon near you and see it live',
+                  subtitle: 'Find a salon, join its line or book a barber',
                   onTap: () => ref
                       .read(entryRoleProvider.notifier)
                       .choose(EntryRole.client),
+                ),
+                const SizedBox(height: 20),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.black,
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                  onPressed: () => showDemoAccounts(context),
+                  icon: const Icon(Icons.play_circle_outline),
+                  label: const Text('Try the demo'),
                 ),
               ],
             ),

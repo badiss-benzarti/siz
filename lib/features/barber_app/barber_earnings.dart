@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../core/cloud/cloud_errors.dart';
+import '../../core/database/database_service.dart';
+import '../../core/providers/core_providers.dart';
 import '../finance/domain/service_ticket.dart';
 import 'barber_session.dart';
 
@@ -85,51 +85,45 @@ class EarningsSummary {
   double get averagePerClient => lines.isEmpty ? 0 : earned / lines.length;
 }
 
-/// The barber's own sales from the server (row-level security shows them
-/// nothing else). Failures are thrown as `AppException`.
+/// The barber's own sales. Failures are thrown as `AppException`.
 abstract class BarberEarningsRepository {
   Future<List<EarningLine>> since(String barberId, DateTime from);
 }
 
-class SupabaseBarberEarningsRepository implements BarberEarningsRepository {
-  SupabaseBarberEarningsRepository(this._client);
+/// [BarberEarningsRepository] reading the salon's tickets on this device.
+class LocalBarberEarningsRepository implements BarberEarningsRepository {
+  LocalBarberEarningsRepository(this._db);
 
-  final SupabaseClient _client;
+  final DatabaseService _db;
 
   @override
   Future<List<EarningLine>> since(String barberId, DateTime from) async {
-    try {
-      final rows = await _client
-          .from('tickets')
-          .select(
-            'created_at, client_name, service_names, barber_cut, tip, '
-            'payment_method, chair_number',
-          )
-          .eq('barber_id', barberId)
-          .gte('created_at', from.toUtc().toIso8601String())
-          .order('created_at', ascending: false);
-      return [
-        for (final r in rows)
-          EarningLine(
-            time: DateTime.parse(r['created_at'] as String).toLocal(),
-            clientName: r['client_name'] as String,
-            services: r['service_names'] as String,
-            commission: (r['barber_cut'] as num).toDouble(),
-            tip: (r['tip'] as num).toDouble(),
-            paymentMethod:
-                PaymentMethod.values.asNameMap()[r['payment_method']] ??
-                PaymentMethod.cash,
-            chairNumber: r['chair_number'] as int,
-          ),
-      ];
-    } catch (e) {
-      throw cloudException(e);
-    }
+    final db = await _db.database;
+    final rows = await db.query(
+      'tickets',
+      where: 'barber_id = ? AND timestamp >= ?',
+      whereArgs: [barberId, from.toIso8601String()],
+      orderBy: 'timestamp DESC',
+    );
+    return [
+      for (final r in rows)
+        EarningLine(
+          time: DateTime.parse(r['timestamp'] as String),
+          clientName: r['client_name'] as String,
+          services: r['service_names'] as String,
+          commission: (r['barber_cut'] as num).toDouble(),
+          tip: (r['tip'] as num).toDouble(),
+          paymentMethod:
+              PaymentMethod.values.asNameMap()[r['payment_method']] ??
+              PaymentMethod.cash,
+          chairNumber: r['chair_number'] as int,
+        ),
+    ];
   }
 }
 
 final barberEarningsRepositoryProvider = Provider<BarberEarningsRepository>(
-  (ref) => SupabaseBarberEarningsRepository(Supabase.instance.client),
+  (ref) => LocalBarberEarningsRepository(ref.watch(databaseServiceProvider)),
 );
 
 /// The last 30 days of the barber's sales, loaded once per visit; every

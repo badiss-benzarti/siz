@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/cloud/cloud_auth.dart';
+import '../../core/auth/account_auth.dart';
 import '../../core/errors/app_exception.dart';
-import '../../core/providers/cloud_providers.dart';
+import '../../core/providers/core_providers.dart';
 
 class ClientSessionState {
   const ClientSessionState({
@@ -13,7 +13,7 @@ class ClientSessionState {
   });
 
   /// The signed-in client account; null while browsing as a guest.
-  final CloudUser? user;
+  final AppUser? user;
   final bool isLoading;
   final String? errorMessage;
   final String? infoMessage;
@@ -29,11 +29,11 @@ final clientSessionProvider =
     );
 
 class ClientSessionNotifier extends Notifier<ClientSessionState> {
-  CloudAuth get _auth => ref.read(cloudAuthProvider);
+  AccountAuth get _auth => ref.read(accountAuthProvider);
 
   @override
   ClientSessionState build() {
-    final user = ref.read(cloudAuthProvider).currentUser;
+    final user = ref.read(accountAuthProvider).currentUser;
     return user?.role == AccountRole.client
         ? ClientSessionState(user: user)
         : const ClientSessionState();
@@ -57,13 +57,7 @@ class ClientSessionNotifier extends Notifier<ClientSessionState> {
         fullName: fullName.trim(),
         role: AccountRole.client,
       );
-      state = user == null
-          ? ClientSessionState(
-              infoMessage:
-                  'Account created. Open the link we sent to $normalized, '
-                  'then sign in.',
-            )
-          : ClientSessionState(user: user);
+      state = ClientSessionState(user: user);
       return true;
     } catch (e) {
       state = ClientSessionState(errorMessage: describeError(e));

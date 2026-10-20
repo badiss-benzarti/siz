@@ -59,14 +59,14 @@ class ShopProfile {
   final DateTime createdAt;
   final List<ServiceItem> services;
 
-  /// Where the salon is, for the client map. Both null until it is placed.
+  /// Unused in Siz (no map); kept so the table matches its columns.
   final double? latitude;
   final double? longitude;
 
   /// Open now (shown to clients as open or closed).
   final bool isOpen;
 
-  /// Shown on the client map. Requires a location.
+  /// Shown in the clients' list of salons.
   final bool isListed;
 
   bool get hasLocation => latitude != null && longitude != null;
@@ -117,7 +117,7 @@ class ShopProfile {
     };
   }
 
-  /// Reads a row from this device (flags as 0/1) or the server (booleans).
+  /// Reads a row of the database (flags as 0/1).
   factory ShopProfile.fromMap(
     Map<String, dynamic> map, {
     List<ServiceItem> services = const [],

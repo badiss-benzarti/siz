@@ -24,13 +24,13 @@ class Barber {
   final bool isArchived;
 
   /// The barber's own account, once they joined with an invitation code.
-  /// Set by the server only.
+  /// Set when the barber joins with an invitation code.
   final String? profileId;
 
   bool get isLinkedToApp => profileId != null;
 
   /// A new name the barber asked for from their app; the owner accepts or
-  /// declines it. Set by the server only.
+  /// declines it.
   final String? requestedName;
 
   Barber copyWith({

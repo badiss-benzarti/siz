@@ -84,7 +84,7 @@ class BarberRepository {
     });
   }
 
-  /// Mirrors the owner's answer to a name request, as the server applied it.
+  /// Applies the owner's answer to a barber's name request.
   Future<void> applyNameAnswer(String barberId, {String? acceptedName}) async {
     final db = await _dbService.database;
     await db.update(
@@ -135,6 +135,7 @@ class BarberRepository {
         'status': 'empty',
         'active_barber_id': null,
         'active_client_name': null,
+        'active_client_id': null,
         'active_ticket_id': null,
         'service_start_time': null,
       },

@@ -1,18 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/errors/app_exception.dart';
 import '../../core/ui/dashboard_widgets.dart';
 import '../../core/ui/room_navigation_bar.dart';
-import '../../prototype/client/client_shell.dart';
+import '../../core/ui/ui_helpers.dart';
 import '../welcome/entry_role.dart';
+import 'client_actions.dart';
+import 'client_activity.dart';
 import 'client_directory.dart';
-import 'client_map_screen.dart';
 import 'client_salon_page.dart';
+import 'client_salons_screen.dart';
 import 'client_session.dart';
 
-/// The client app: the map of salons in the middle, the latest cuts in
-/// Social, and the account in Profile. Works without an account.
+const _muted = Color(0xFF6B7280);
+
+/// The client app: the list of salons in the middle, the client's line and
+/// bookings, the latest cuts in Social, favorite salons, and the account in
+/// Profile. Browsing works without an account.
 class ClientSpace extends StatefulWidget {
   const ClientSpace({super.key});
 
@@ -21,34 +27,254 @@ class ClientSpace extends StatefulWidget {
 }
 
 class _ClientSpaceState extends State<ClientSpace> {
-  static const _mapTab = 1;
+  static const _salonsTab = 2;
 
-  int _tab = _mapTab;
+  int _tab = _salonsTab;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
         index: _tab,
-        children: [
-          const _ProfileTab(),
-          ClientMapScreen(active: _tab == _mapTab),
-          const _SocialTab(),
+        children: const [
+          _ProfileTab(),
+          _BookingsTab(),
+          ClientSalonsScreen(),
+          _SocialTab(),
+          _FavoritesTab(),
         ],
       ),
       bottomNavigationBar: RoomNavigationBar(
         items: const [
           RoomNavItem(Icons.person_outline, Icons.person, 'Profile'),
-          RoomNavItem(Icons.map_outlined, Icons.map, 'Map'),
+          RoomNavItem(Icons.event_note_outlined, Icons.event_note, 'Bookings'),
+          RoomNavItem(Icons.storefront_outlined, Icons.storefront, 'Salons'),
           RoomNavItem(
             Icons.photo_library_outlined,
             Icons.photo_library,
             'Social',
           ),
+          RoomNavItem(Icons.favorite_border, Icons.favorite, 'Favorites'),
         ],
         currentIndex: _tab,
         onTap: (i) => setState(() => _tab = i),
       ),
+    );
+  }
+}
+
+/// Shown on tabs that need an account.
+class _SignInFirst extends StatelessWidget {
+  const _SignInFirst(this.message);
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(16),
+    child: EmptyBox('$message\nCreate a free account in Profile.'),
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Bookings: my place in a line, my booked times
+// -----------------------------------------------------------------------------
+
+class _BookingsTab extends ConsumerWidget {
+  const _BookingsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(clientSessionProvider.select((s) => s.user));
+    final spot = ref.watch(myQueueSpotProvider);
+    final bookings = ref.watch(myBookingsProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('My Bookings'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            icon: const Icon(Icons.refresh),
+            onPressed: () => dataChanged(ref),
+          ),
+        ],
+      ),
+      body: user == null
+          ? const _SignInFirst(
+              'Join a line or book a barber from a salon page.',
+            )
+          : RefreshIndicator(
+              onRefresh: () async => dataChanged(ref),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                children: [
+                  const SectionHeading('In line'),
+                  switch (spot) {
+                    AsyncData(value: final s?) => Card(
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.black,
+                          child: Text(
+                            '#${s.position}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        title: Text(
+                          s.shopName,
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        subtitle: Text(
+                          s.position == 1
+                              ? 'You are next!'
+                              : '${s.position - 1} before you · since '
+                                    '${DateFormat('HH:mm').format(s.joinedAt)}',
+                        ),
+                        trailing: TextButton(
+                          onPressed: () async {
+                            await runAction(
+                              context,
+                              () => ref
+                                  .read(clientActivityProvider)
+                                  .leaveQueue(user.id),
+                              successMessage: 'You left the line.',
+                            );
+                            dataChanged(ref);
+                          },
+                          child: const Text('Leave'),
+                        ),
+                        onTap: () => openSalon(context, s.shopId),
+                      ),
+                    ),
+                    AsyncData() => const EmptyBox(
+                      'You are not in a line. Open a salon and tap '
+                      '"Join the line".',
+                    ),
+                    AsyncError(:final error) => EmptyBox(describeError(error)),
+                    _ => const EmptyBox('Loading…'),
+                  },
+                  const SectionHeading('Booked times'),
+                  switch (bookings) {
+                    AsyncData(:final value) when value.isEmpty =>
+                      const EmptyBox(
+                        'No bookings yet. Open a salon and tap "Book".',
+                      ),
+                    AsyncData(:final value) => Column(
+                      children: [
+                        for (final b in value.reversed)
+                          _MyBookingCard(booking: b, clientId: user.id),
+                      ],
+                    ),
+                    AsyncError(:final error) => EmptyBox(describeError(error)),
+                    _ => const EmptyBox('Loading…'),
+                  },
+                ],
+              ),
+            ),
+    );
+  }
+}
+
+class _MyBookingCard extends ConsumerWidget {
+  const _MyBookingCard({required this.booking, required this.clientId});
+
+  final Booking booking;
+  final String clientId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final b = booking;
+    final upcoming = b.isActive && b.startsAt.isAfter(DateTime.now());
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: ListTile(
+        leading: BookingStatusIcon(b.status),
+        title: Text(
+          '${b.serviceName} · ${b.shopName}',
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+        subtitle: Text(
+          '${DateFormat('EEE d MMM, HH:mm').format(b.startsAt)}'
+          '${b.barberName == null ? '' : ' with ${b.barberName}'}\n'
+          '${b.status.label}',
+        ),
+        isThreeLine: true,
+        trailing: upcoming
+            ? TextButton(
+                onPressed: () async {
+                  await runAction(
+                    context,
+                    () => ref
+                        .read(clientActivityProvider)
+                        .cancelBooking(b.id, clientId),
+                    successMessage: 'Booking cancelled.',
+                  );
+                  dataChanged(ref);
+                },
+                child: const Text('Cancel'),
+              )
+            : null,
+        onTap: () => openSalon(context, b.shopId),
+      ),
+    );
+  }
+}
+
+/// Colored icon for a booking's status.
+class BookingStatusIcon extends StatelessWidget {
+  const BookingStatusIcon(this.status, {super.key});
+
+  final BookingStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, color) = switch (status) {
+      BookingStatus.pending => (Icons.hourglass_top, const Color(0xFFF59E0B)),
+      BookingStatus.accepted => (Icons.check_circle, const Color(0xFF10B981)),
+      BookingStatus.done => (Icons.how_to_reg, const Color(0xFF2563EB)),
+      _ => (Icons.cancel, const Color(0xFF9CA3AF)),
+    };
+    return Icon(icon, color: color, size: 30);
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Favorites
+// -----------------------------------------------------------------------------
+
+class _FavoritesTab extends ConsumerWidget {
+  const _FavoritesTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(clientSessionProvider.select((s) => s.user));
+    final favorites = ref.watch(favoriteSalonsProvider);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Favorites')),
+      body: user == null
+          ? const _SignInFirst('Keep your favorite salons one tap away.')
+          : switch (favorites) {
+              AsyncData(:final value) when value.isEmpty => const Padding(
+                padding: EdgeInsets.all(16),
+                child: EmptyBox(
+                  'No favorites yet. Tap the heart on a salon page.',
+                ),
+              ),
+              AsyncData(:final value) => ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  for (final s in value) SalonCard(salon: s, isFavorite: true),
+                ],
+              ),
+              AsyncError(:final error) => Center(
+                child: Text(describeError(error)),
+              ),
+              _ => const Center(child: CircularProgressIndicator()),
+            },
     );
   }
 }
@@ -96,7 +322,7 @@ class _SocialTab extends ConsumerWidget {
 }
 
 // -----------------------------------------------------------------------------
-// Profile: the account, or signing in / up
+// Profile: the account and visits to rate, or signing in / up
 // -----------------------------------------------------------------------------
 
 class _ProfileTab extends ConsumerWidget {
@@ -145,17 +371,8 @@ class _ProfileTab extends ConsumerWidget {
                 subtitle: Text(user.email),
               ),
             ),
-            const SizedBox(height: 12),
-            const Card(
-              child: ListTile(
-                leading: Icon(Icons.schedule),
-                title: Text('Queue, bookings and ratings'),
-                subtitle: Text(
-                  'Coming in the next updates: join a line from the app, '
-                  'book a barber, rate your cut.',
-                ),
-              ),
-            ),
+            const SectionHeading('My visits'),
+            const _VisitsList(),
             const SizedBox(height: 12),
             Card(
               child: ListTile(
@@ -168,36 +385,94 @@ class _ProfileTab extends ConsumerWidget {
               ),
             ),
           ],
-          const SizedBox(height: 12),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.visibility_outlined),
-                  title: const Text('See upcoming features'),
-                  subtitle: const Text('Bookings, VIP, favorites (preview)'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const ClientShell(),
-                    ),
-                  ),
-                ),
-                if (user == null) ...[
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.swap_horiz),
-                    title: const Text('Change space'),
-                    subtitle: const Text('Owner or barber? Go back.'),
-                    onTap: () => ref.read(entryRoleProvider.notifier).reset(),
-                  ),
-                ],
-              ],
+          if (user == null) ...[
+            const SizedBox(height: 12),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.swap_horiz),
+                title: const Text('Change space'),
+                subtitle: const Text('Owner or barber? Go back.'),
+                onTap: () => ref.read(entryRoleProvider.notifier).reset(),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
+  }
+}
+
+/// The client's finished cuts; rating one is what makes a barber's rating.
+class _VisitsList extends ConsumerWidget {
+  const _VisitsList();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final visits = ref.watch(myVisitsProvider);
+    final user = ref.watch(clientSessionProvider.select((s) => s.user));
+    return switch (visits) {
+      AsyncData(:final value) when value.isEmpty => const EmptyBox(
+        'Your cuts appear here after a visit, so you can rate them.',
+      ),
+      AsyncData(:final value) => Column(
+        children: [
+          for (final v in value)
+            Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 12, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${v.barberName} · ${v.shopName}',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    Text(
+                      '${v.services} · ${formatMoney(v.total)} · '
+                      '${DateFormat('d MMM').format(v.time)}',
+                      style: const TextStyle(color: _muted, fontSize: 12),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Text(
+                          v.stars == null ? 'Rate your cut' : 'Your rating',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        const Spacer(),
+                        StarPicker(
+                          value: v.stars,
+                          size: 26,
+                          onChanged: (stars) async {
+                            if (user == null) return;
+                            await runAction(
+                              context,
+                              () => ref
+                                  .read(clientActivityProvider)
+                                  .rateVisit(
+                                    clientId: user.id,
+                                    ticketId: v.ticketId,
+                                    stars: stars,
+                                  ),
+                              successMessage:
+                                  'Thanks! ${v.barberName} sees '
+                                  'your rating.',
+                            );
+                            dataChanged(ref);
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+      AsyncError(:final error) => EmptyBox(describeError(error)),
+      _ => const EmptyBox('Loading…'),
+    };
   }
 }
 

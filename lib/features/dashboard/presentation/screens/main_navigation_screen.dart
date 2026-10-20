@@ -1,4 +1,3 @@
-import 'package:siz/core/sync/sync_controller.dart';
 import 'package:siz/core/ui/room_navigation_bar.dart';
 import 'package:siz/features/barbers/presentation/screens/barbers_screen.dart';
 import 'package:siz/features/clients/presentation/screens/clients_screen.dart';
@@ -31,8 +30,6 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Keeps cloud sync running while the salon is open.
-    ref.watch(syncControllerProvider.select((s) => s.enabled));
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: RoomNavigationBar(

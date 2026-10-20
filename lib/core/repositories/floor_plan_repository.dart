@@ -15,6 +15,7 @@ class FloorPlanRepository {
 
   static const Map<String, Object?> _clearedClient = {
     'active_client_name': null,
+    'active_client_id': null,
     'active_ticket_id': null,
     'service_start_time': null,
   };
@@ -165,11 +166,27 @@ class FloorPlanRepository {
         throw const AppException('This chair is not ready for a client.');
       }
 
+      // A client account waiting in line: its visit is linked to it, so the
+      // client can rate it afterwards.
+      String? clientId;
+      if (queueItemId != null) {
+        final waiting = await txn.query(
+          'queue',
+          columns: ['client_id'],
+          where: 'id = ? AND shop_id = ?',
+          whereArgs: [queueItemId, shopId],
+        );
+        if (waiting.isNotEmpty) {
+          clientId = waiting.first['client_id'] as String?;
+        }
+      }
+
       await txn.update(
         'chairs',
         {
           'status': 'occupied',
           'active_client_name': name,
+          'active_client_id': clientId,
           'active_ticket_id': _uuid.v4(),
           'service_start_time': DateTime.now().toIso8601String(),
         },
@@ -286,7 +303,10 @@ class FloorPlanRepository {
         timestamp: DateTime.now(),
       );
 
-      await txn.insert('tickets', ticket.toMap());
+      await txn.insert('tickets', {
+        ...ticket.toMap(),
+        'client_id': chair['active_client_id'],
+      });
       await txn.update(
         'chairs',
         {'status': 'available', ..._clearedClient},

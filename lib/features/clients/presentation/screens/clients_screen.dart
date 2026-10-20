@@ -1,4 +1,7 @@
+import 'package:siz/core/providers/data_revision.dart';
 import 'package:siz/core/ui/ui_helpers.dart';
+import 'package:siz/features/auth_onboarding/presentation/auth_providers.dart';
+import 'package:siz/features/bookings/salon_bookings.dart';
 import 'package:siz/features/clients/presentation/client_providers.dart';
 import 'package:siz/features/queue/presentation/queue_providers.dart';
 import 'package:flutter/material.dart';
@@ -11,7 +14,7 @@ class ClientsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Clients'),
@@ -19,10 +22,7 @@ class ClientsScreen extends ConsumerWidget {
             IconButton(
               tooltip: 'Refresh',
               icon: const Icon(Icons.refresh),
-              onPressed: () {
-                ref.invalidate(queueProvider);
-                ref.invalidate(clientHistoryProvider);
-              },
+              onPressed: () => ref.read(dataRevisionProvider.notifier).bump(),
             ),
           ],
           bottom: const TabBar(
@@ -30,12 +30,33 @@ class ClientsScreen extends ConsumerWidget {
             indicatorColor: Colors.black,
             tabs: [
               Tab(text: 'Waiting'),
+              Tab(text: 'Bookings'),
               Tab(text: 'History'),
             ],
           ),
         ),
-        body: const TabBarView(children: [_WaitingTab(), _HistoryTab()]),
+        body: const TabBarView(
+          children: [_WaitingTab(), _BookingsTab(), _HistoryTab()],
+        ),
       ),
+    );
+  }
+}
+
+/// Booking requests from clients' apps, and today's confirmed clients to
+/// check in.
+class _BookingsTab extends ConsumerWidget {
+  const _BookingsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final shopId = ref.watch(currentShopIdProvider);
+    if (shopId == null) return const SizedBox.shrink();
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        SalonBookingsList(bookings: ref.watch(shopBookingsProvider(shopId))),
+      ],
     );
   }
 }

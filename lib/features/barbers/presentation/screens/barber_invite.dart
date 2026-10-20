@@ -3,11 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../core/cloud/cloud_invites.dart';
-import '../../../../core/errors/app_exception.dart';
-import '../../../../core/providers/cloud_providers.dart';
 import '../../../../core/ui/ui_helpers.dart';
-import '../../../auth_onboarding/presentation/auth_providers.dart';
+import '../../data/barber_invites.dart';
 import '../../domain/barber.dart';
 import '../barber_providers.dart';
 
@@ -53,12 +50,6 @@ class BarberAppLink extends ConsumerWidget {
         ],
       );
     }
-    // Invitations need the salon on the server.
-    final isCloud = ref.watch(
-      authProvider.select((s) => s.owner?.isCloudAccount ?? false),
-    );
-    if (!isCloud) return const SizedBox.shrink();
-
     return TextButton.icon(
       style: TextButton.styleFrom(
         foregroundColor: Colors.black,
@@ -79,20 +70,7 @@ class BarberAppLink extends ConsumerWidget {
   Future<void> _invite(BuildContext context, WidgetRef ref) async {
     BarberInvite? invite;
     final ok = await runAction(context, () async {
-      try {
-        invite = await ref
-            .read(cloudInvitesProvider)
-            .createBarberInvite(barber.id);
-      } on AppException catch (e) {
-        // A barber added offline has not reached the server yet.
-        if (e.message == 'Barber not found.') {
-          throw const AppException(
-            'This barber is not on the server yet. Check your connection '
-            'and try again in a moment.',
-          );
-        }
-        rethrow;
-      }
+      invite = await ref.read(barberInvitesProvider).create(barber.id);
     });
     if (!ok || invite == null || !context.mounted) return;
     await showDialog<void>(
@@ -115,9 +93,6 @@ class _NameRequest extends ConsumerWidget {
     Future<void> answer({required bool accept}) => runAction(
       context,
       () async {
-        await ref
-            .read(cloudInvitesProvider)
-            .answerNameChange(barber.id, accept: accept);
         await ref
             .read(barberRepositoryProvider)
             .applyNameAnswer(barber.id, acceptedName: accept ? wanted : null);

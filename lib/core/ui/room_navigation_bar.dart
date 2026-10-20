@@ -10,7 +10,7 @@ class RoomNavItem {
 }
 
 /// Rounded, outlined tab bar shared by the owner, barber and client apps.
-/// The middle item is the home button (the floor, the salon, the map),
+/// The middle item is the home button (the floor, the salon, the salons),
 /// drawn as a round outlined button.
 class RoomNavigationBar extends StatelessWidget {
   const RoomNavigationBar({

@@ -1,11 +1,9 @@
 import 'package:siz/core/repositories/shop_repository.dart';
-import 'package:siz/core/sync/sync_controller.dart';
 import 'package:siz/core/ui/ui_helpers.dart';
 import 'package:siz/features/auth_onboarding/domain/shop_profile.dart';
 import 'package:siz/features/auth_onboarding/presentation/auth_providers.dart';
 import 'package:siz/features/barbers/presentation/barber_providers.dart';
 import 'package:siz/features/floor_plan/presentation/floor_plan_providers.dart';
-import 'package:siz/features/shop_location/salon_map_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -36,11 +34,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const _SyncCard(),
-          const SizedBox(height: 16),
           _ShopProfileCard(shop: shop),
           const SizedBox(height: 16),
-          SalonMapCard(shop: shop),
+          _ClientsSeeCard(shop: shop),
           const SizedBox(height: 16),
           _ServicesCard(services: shop.services),
           const SizedBox(height: 16),
@@ -557,81 +553,58 @@ class _DataStorageCard extends StatelessWidget {
   }
 }
 
-/// Whether the salon is saved online, and what is still waiting to be sent.
-class _SyncCard extends ConsumerWidget {
-  const _SyncCard();
+/// Whether clients find the salon in their list, and whether it is open.
+class _ClientsSeeCard extends ConsumerWidget {
+  const _ClientsSeeCard({required this.shop});
+
+  final ShopProfile shop;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final sync = ref.watch(syncControllerProvider);
-    final (icon, color, title, detail) = _describe(context, sync);
-
+    final auth = ref.read(authProvider.notifier);
     return Card(
-      child: ListTile(
-        leading: sync.syncing
-            ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2.5),
-              )
-            : Icon(icon, color: color),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text(detail),
-        trailing: sync.enabled
-            ? IconButton(
-                tooltip: 'Sync now',
-                icon: const Icon(Icons.sync),
-                onPressed: sync.syncing
-                    ? null
-                    : () => ref.read(syncControllerProvider.notifier).syncNow(),
-              )
-            : null,
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
+            child: Text(
+              'What clients see',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 4),
+            child: Text(
+              'Clients find the salon in their list of salons, with its '
+              'waiting line, barbers, prices and photos.',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+          ),
+          SwitchListTile(
+            title: const Text('Show my salon to clients'),
+            subtitle: Text(
+              shop.isListed
+                  ? 'Clients can find you in the list of salons.'
+                  : 'Hidden from clients.',
+            ),
+            value: shop.isListed,
+            onChanged: (v) => runAction(context, () => auth.setShopListed(v)),
+          ),
+          const Divider(height: 1),
+          SwitchListTile(
+            title: const Text('Open now'),
+            subtitle: Text(
+              shop.isOpen
+                  ? 'Clients see the salon as open.'
+                  : 'Clients see the salon as closed.',
+            ),
+            value: shop.isOpen,
+            onChanged: (v) => runAction(context, () => auth.setShopOpen(v)),
+          ),
+        ],
       ),
-    );
-  }
-
-  static (IconData, Color, String, String) _describe(
-    BuildContext context,
-    SyncStatus sync,
-  ) {
-    if (!sync.enabled) {
-      return (
-        Icons.phone_android,
-        Colors.grey,
-        'Saved on this device only',
-        'Demo and older salons are not saved online.',
-      );
-    }
-    final waiting = sync.pending == 1 ? '1 change' : '${sync.pending} changes';
-    if (sync.offline) {
-      return (
-        Icons.cloud_off_outlined,
-        Colors.orange,
-        'Offline',
-        sync.pending == 0
-            ? 'Everything was saved online before going offline.'
-            : '$waiting will be sent when you are back online.',
-      );
-    }
-    if (sync.error != null) {
-      return (Icons.sync_problem, Colors.red, 'Not fully synced', sync.error!);
-    }
-    if (sync.pending > 0) {
-      return (
-        Icons.cloud_upload_outlined,
-        Colors.blueGrey,
-        'Sending',
-        '$waiting waiting.',
-      );
-    }
-    final last = sync.lastSyncedAt;
-    return (
-      Icons.cloud_done_outlined,
-      Colors.green,
-      'Saved online',
-      last == null
-          ? 'Up to date.'
-          : 'Last sync at ${TimeOfDay.fromDateTime(last).format(context)}.',
     );
   }
 }

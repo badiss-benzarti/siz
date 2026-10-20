@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/cloud/cloud_auth.dart';
+import '../../core/auth/account_auth.dart';
 import '../../core/errors/app_exception.dart';
-import '../../core/providers/cloud_providers.dart';
+import '../../core/providers/core_providers.dart';
 import 'barber_link.dart';
 
 class BarberSessionState {
@@ -16,7 +16,7 @@ class BarberSessionState {
   });
 
   /// The signed-in barber account, if any.
-  final CloudUser? user;
+  final AppUser? user;
 
   /// The salon the account is linked to; null until it joins one.
   final BarberLink? link;
@@ -33,15 +33,14 @@ class BarberSessionState {
 /// The barber side's session. A new barber starts with the code from their
 /// salon owner, which shows the salon and the name the owner registered;
 /// only then do they create their account, which joins the salon right
-/// away. Unlike the owner app it works online: the barber's data lives in
-/// their salon, on the server.
+/// away. The barber sees their salon's data from this device's database.
 final barberSessionProvider =
     NotifierProvider<BarberSessionNotifier, BarberSessionState>(
       BarberSessionNotifier.new,
     );
 
 class BarberSessionNotifier extends Notifier<BarberSessionState> {
-  CloudAuth get _auth => ref.read(cloudAuthProvider);
+  AccountAuth get _auth => ref.read(accountAuthProvider);
   BarberLinkRepository get _links => ref.read(barberLinkRepositoryProvider);
 
   static const _invalidCode =
@@ -49,7 +48,7 @@ class BarberSessionNotifier extends Notifier<BarberSessionState> {
 
   @override
   BarberSessionState build() {
-    final user = ref.read(cloudAuthProvider).currentUser;
+    final user = ref.read(accountAuthProvider).currentUser;
     if (user == null || user.role != AccountRole.barber) {
       return const BarberSessionState();
     }
@@ -103,7 +102,7 @@ class BarberSessionNotifier extends Notifier<BarberSessionState> {
     state = BarberSessionState(invite: invite, isLoading: true);
     final normalized = email.toLowerCase().trim();
 
-    final CloudUser? user;
+    final AppUser user;
     try {
       user = await _auth.signUp(
         email: normalized,
@@ -117,14 +116,6 @@ class BarberSessionNotifier extends Notifier<BarberSessionState> {
         errorMessage: describeError(e),
       );
       return false;
-    }
-    if (user == null) {
-      state = BarberSessionState(
-        infoMessage:
-            'Account created. Open the link we sent to $normalized, sign '
-            'in, then enter your code again.',
-      );
-      return true;
     }
 
     try {

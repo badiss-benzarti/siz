@@ -5,7 +5,7 @@ import '../../../core/repositories/barber_repository.dart';
 import '../../auth_onboarding/presentation/auth_providers.dart';
 import '../../floor_plan/presentation/floor_plan_providers.dart';
 import '../domain/barber.dart';
-import '../../../core/sync/sync_revision.dart';
+import '../../../core/providers/data_revision.dart';
 
 final barberRepositoryProvider = Provider<BarberRepository>((ref) {
   return BarberRepository(dbService: ref.watch(databaseServiceProvider));
@@ -14,7 +14,7 @@ final barberRepositoryProvider = Provider<BarberRepository>((ref) {
 class BarberNotifier extends AsyncNotifier<List<Barber>> {
   @override
   Future<List<Barber>> build() async {
-    ref.watch(syncRevisionProvider);
+    ref.watch(dataRevisionProvider);
     final shopId = ref.watch(currentShopIdProvider);
     if (shopId == null) return const [];
     return ref.read(barberRepositoryProvider).getBarbers(shopId);

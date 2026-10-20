@@ -1,11 +1,13 @@
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../core/cloud/cloud_errors.dart';
+import '../../core/database/database_service.dart';
+import '../../core/errors/app_exception.dart';
+import '../../core/media/local_photo.dart';
 import '../../core/media/photo_compressor.dart';
+import '../../core/providers/core_providers.dart';
 import 'barber_session.dart';
 
 /// One photo of a cut, as posted by a barber.
@@ -23,8 +25,10 @@ class PortfolioPost {
 
   final String id;
 
-  /// Path in the storage bucket (`<barber id>/<file>`).
+  /// The photo file on this phone, or a drawn demo photo (see [PhotoStore]).
   final String imagePath;
+
+  /// Same as [imagePath]; what [LocalPhoto] shows.
   final String imageUrl;
   final String caption;
 
@@ -57,8 +61,7 @@ class VisitRating {
   final int count;
 }
 
-/// Server access for a barber's portfolio. Failures are thrown as
-/// `AppException`.
+/// A barber's portfolio. Failures are thrown as `AppException`.
 abstract class PortfolioRepository {
   Future<List<PortfolioPost>> postsOf(String barberId);
 
@@ -66,7 +69,7 @@ abstract class PortfolioRepository {
 
   Future<VisitRating> visitRatingOf(String barberId);
 
-  /// Compresses [photo], uploads it to the barber's folder and posts it.
+  /// Compresses [photo], saves it on the phone and posts it.
   Future<void> publish({
     required String barberId,
     required Uint8List photo,
@@ -78,81 +81,85 @@ abstract class PortfolioRepository {
   Future<void> deleteComment(String commentId);
 }
 
-class SupabasePortfolioRepository implements PortfolioRepository {
-  SupabasePortfolioRepository(this._client);
+/// SQL shared by every list of posts: the post, its barber and salon, and
+/// its photo rating and comment count.
+abstract final class PostQuery {
+  static const select = '''
+    SELECT p.id, p.shop_id, p.barber_id, p.image, p.caption, p.created_at,
+      b.name AS barber_name, s.name AS shop_name,
+      (SELECT AVG(stars) FROM photo_ratings r WHERE r.post_id = p.id)
+        AS rating_avg,
+      (SELECT COUNT(*) FROM photo_ratings r WHERE r.post_id = p.id)
+        AS rating_count,
+      (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id)
+        AS comment_count
+    FROM portfolio_posts p
+    JOIN barbers b ON b.id = p.barber_id
+    JOIN shops s ON s.id = p.shop_id
+  ''';
 
-  final SupabaseClient _client;
+  /// The barber's rating from clients' ratings of real visits.
+  static const visitRating = '''
+    SELECT AVG(stars) AS avg, COUNT(*) AS n
+    FROM visit_ratings WHERE barber_id = ?
+  ''';
+}
 
-  static const bucket = 'portfolio';
+/// [PortfolioRepository] on this device: rows in the database, photos as
+/// files in the app's folder.
+class LocalPortfolioRepository implements PortfolioRepository {
+  LocalPortfolioRepository(this._db, {this.photos = const PhotoStore()});
 
-  StorageFileApi get _files => _client.storage.from(bucket);
+  final DatabaseService _db;
+  final PhotoStore photos;
 
   @override
   Future<List<PortfolioPost>> postsOf(String barberId) async {
-    try {
-      final rows = await _client
-          .from('portfolio_posts')
-          .select(
-            'id, image_path, caption, rating_avg, rating_count, '
-            'comment_count, created_at',
-          )
-          .eq('barber_id', barberId)
-          .order('created_at', ascending: false);
-      return [
-        for (final r in rows)
-          PortfolioPost(
-            id: r['id'] as String,
-            imagePath: r['image_path'] as String,
-            imageUrl: _files.getPublicUrl(r['image_path'] as String),
-            caption: r['caption'] as String,
-            ratingAvg: (r['rating_avg'] as num).toDouble(),
-            ratingCount: r['rating_count'] as int,
-            commentCount: r['comment_count'] as int,
-            createdAt: DateTime.parse(r['created_at'] as String).toLocal(),
-          ),
-      ];
-    } catch (e) {
-      throw cloudException(e);
-    }
+    final db = await _db.database;
+    final rows = await db.rawQuery(
+      '${PostQuery.select} WHERE p.barber_id = ? ORDER BY p.created_at DESC',
+      [barberId],
+    );
+    return [
+      for (final r in rows)
+        PortfolioPost(
+          id: r['id'] as String,
+          imagePath: r['image'] as String,
+          imageUrl: r['image'] as String,
+          caption: r['caption'] as String,
+          ratingAvg: (r['rating_avg'] as num?)?.toDouble() ?? 0,
+          ratingCount: r['rating_count'] as int,
+          commentCount: r['comment_count'] as int,
+          createdAt: DateTime.parse(r['created_at'] as String),
+        ),
+    ];
   }
 
   @override
   Future<List<PostComment>> commentsOf(String postId) async {
-    try {
-      final rows = await _client
-          .from('post_comments')
-          .select('id, author_name, body, created_at')
-          .eq('post_id', postId)
-          .order('created_at');
-      return [
-        for (final r in rows)
-          PostComment(
-            id: r['id'] as String,
-            authorName: r['author_name'] as String,
-            body: r['body'] as String,
-            createdAt: DateTime.parse(r['created_at'] as String).toLocal(),
-          ),
-      ];
-    } catch (e) {
-      throw cloudException(e);
-    }
+    final db = await _db.database;
+    final rows = await db.query(
+      'post_comments',
+      where: 'post_id = ?',
+      whereArgs: [postId],
+      orderBy: 'created_at ASC',
+    );
+    return [
+      for (final r in rows)
+        PostComment(
+          id: r['id'] as String,
+          authorName: r['author_name'] as String,
+          body: r['body'] as String,
+          createdAt: DateTime.parse(r['created_at'] as String),
+        ),
+    ];
   }
 
   @override
   Future<VisitRating> visitRatingOf(String barberId) async {
-    try {
-      final row = await _client
-          .from('barbers')
-          .select('rating_avg, rating_count')
-          .eq('id', barberId)
-          .single();
-      return VisitRating(
-        (row['rating_avg'] as num).toDouble(),
-        row['rating_count'] as int,
-      );
-    } catch (e) {
-      throw cloudException(e);
-    }
+    final db = await _db.database;
+    final row = (await db.rawQuery(PostQuery.visitRating, [barberId])).first;
+    return VisitRating((row['avg'] as num?)?.toDouble() ?? 0, row['n'] as int);
   }
 
   @override
@@ -161,53 +168,50 @@ class SupabasePortfolioRepository implements PortfolioRepository {
     required Uint8List photo,
     required String caption,
   }) async {
+    final text = caption.trim();
+    if (text.isEmpty) throw const AppException('Write a caption.');
+    final db = await _db.database;
+    final barber = await db.query(
+      'barbers',
+      columns: ['shop_id'],
+      where: 'id = ?',
+      whereArgs: [barberId],
+    );
+    if (barber.isEmpty) throw const AppException('You are not in a salon.');
     final jpeg = await PhotoCompressor.compress(photo);
-    final path = '$barberId/${const Uuid().v4()}.jpg';
+    final image = await photos.save(jpeg);
     try {
-      await _files.uploadBinary(
-        path,
-        jpeg,
-        fileOptions: const FileOptions(contentType: 'image/jpeg'),
-      );
-    } catch (e) {
-      throw cloudException(e);
-    }
-    try {
-      await _client.from('portfolio_posts').insert({
+      await db.insert('portfolio_posts', {
+        'id': const Uuid().v4(),
         'barber_id': barberId,
-        'image_path': path,
-        'caption': caption.trim(),
-        'client_consent': true,
+        'shop_id': barber.first['shop_id'],
+        'image': image,
+        'caption': text,
+        'created_at': DateTime.now().toIso8601String(),
       });
-    } catch (e) {
+    } catch (_) {
       // No orphan photo if the post itself is refused.
-      await _files.remove([path]).catchError((_) => <FileObject>[]);
-      throw cloudException(e);
+      await photos.delete(image);
+      rethrow;
     }
   }
 
   @override
   Future<void> deletePost(PortfolioPost post) async {
-    try {
-      await _client.from('portfolio_posts').delete().eq('id', post.id);
-      await _files.remove([post.imagePath]);
-    } catch (e) {
-      throw cloudException(e);
-    }
+    final db = await _db.database;
+    await db.delete('portfolio_posts', where: 'id = ?', whereArgs: [post.id]);
+    await photos.delete(post.imagePath);
   }
 
   @override
   Future<void> deleteComment(String commentId) async {
-    try {
-      await _client.from('post_comments').delete().eq('id', commentId);
-    } catch (e) {
-      throw cloudException(e);
-    }
+    final db = await _db.database;
+    await db.delete('post_comments', where: 'id = ?', whereArgs: [commentId]);
   }
 }
 
 final portfolioRepositoryProvider = Provider<PortfolioRepository>(
-  (ref) => SupabasePortfolioRepository(Supabase.instance.client),
+  (ref) => LocalPortfolioRepository(ref.watch(databaseServiceProvider)),
 );
 
 /// The signed-in barber's posts, newest first.

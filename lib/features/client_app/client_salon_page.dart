@@ -5,11 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/errors/app_exception.dart';
+import '../../core/media/local_photo.dart';
 import '../../core/ui/dashboard_widgets.dart';
 import '../../core/ui/ui_helpers.dart';
 import '../floor_plan/presentation/widgets/room/room_view.dart';
 import 'client_directory.dart';
-import 'client_map_screen.dart' show LoadPill;
+import 'client_actions.dart';
 
 const _ink = Color(0xFF111111);
 const _muted = Color(0xFF6B7280);
@@ -53,6 +54,7 @@ class _ClientSalonPageState extends ConsumerState<ClientSalonPage> {
       length: 4,
       child: Scaffold(
         appBar: AppBar(
+          actions: [FavoriteButton(shopId: widget.shopId)],
           title: Column(
             children: [
               Text(
@@ -100,19 +102,21 @@ class _ClientSalonPageState extends ConsumerState<ClientSalonPage> {
           ),
           _ => const Center(child: CircularProgressIndicator()),
         },
-        bottomNavigationBar: value == null ? null : _StatusBar(details: value),
+        bottomNavigationBar: value == null
+            ? null
+            : SalonActionBar(details: value),
       ),
     );
   }
 }
 
-class _LiveTab extends StatelessWidget {
+class _LiveTab extends ConsumerWidget {
   const _LiveTab({required this.details});
 
   final SalonDetails details;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final salon = details.salon;
     if (!salon.isOpen) {
       return const Center(
@@ -132,8 +136,13 @@ class _LiveTab extends StatelessWidget {
         waitingCount: salon.waitingCount,
         anonymizeClients: true,
         reserveLabel: 'JOIN THE QUEUE',
-        onReserveTap: () => _comingSoon(context),
-        onQueueViewTap: () => _comingSoon(context),
+        onReserveTap: () => joinLine(context, ref, salon.id),
+        onQueueViewTap: () => showSnack(
+          context,
+          salon.waitingCount == 0
+              ? 'Nobody is waiting.'
+              : '${salon.waitingCount} waiting.',
+        ),
         onStationTap: (s) => showSnack(
           context,
           s.activeBarberName == null
@@ -144,11 +153,6 @@ class _LiveTab extends StatelessWidget {
     );
   }
 }
-
-void _comingSoon(BuildContext context) => showSnack(
-  context,
-  'Joining the queue from the app arrives in the next update.',
-);
 
 class _BarbersTab extends StatelessWidget {
   const _BarbersTab({required this.details});
@@ -268,56 +272,6 @@ class _PhotosTab extends StatelessWidget {
   }
 }
 
-class _StatusBar extends StatelessWidget {
-  const _StatusBar({required this.details});
-
-  final SalonDetails details;
-
-  @override
-  Widget build(BuildContext context) {
-    final salon = details.salon;
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
-        ),
-        child: Row(
-          children: [
-            LoadPill(salon),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                salon.isOpen
-                    ? '${details.barbersOnDuty} barber'
-                          '${details.barbersOnDuty == 1 ? '' : 's'} on duty'
-                    : 'Closed now',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ),
-            if (salon.isOpen) ...[
-              const SizedBox(width: 8),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: _ink,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  visualDensity: VisualDensity.compact,
-                ),
-                onPressed: () => _comingSoon(context),
-                child: const Text('Join the queue'),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // -----------------------------------------------------------------------------
 // Photos: grid, and one post with its comments
 // -----------------------------------------------------------------------------
@@ -390,7 +344,7 @@ class PostGrid extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              NetworkPhoto(url: post.imageUrl),
+              LocalPhoto(source: post.imageUrl),
               if (post.ratingCount > 0 || showSalon)
                 Positioned(
                   left: 4,
@@ -454,27 +408,6 @@ class PostGrid extends StatelessWidget {
   }
 }
 
-/// A network photo with a calm placeholder while loading or offline.
-class NetworkPhoto extends StatelessWidget {
-  const NetworkPhoto({super.key, required this.url});
-
-  final String url;
-
-  @override
-  Widget build(BuildContext context) {
-    return Image.network(
-      url,
-      fit: BoxFit.cover,
-      loadingBuilder: (_, child, progress) =>
-          progress == null ? child : const ColoredBox(color: Color(0xFFE5E7EB)),
-      errorBuilder: (_, _, _) => const ColoredBox(
-        color: Color(0xFFE5E7EB),
-        child: Center(child: Icon(Icons.image_outlined, color: Colors.grey)),
-      ),
-    );
-  }
-}
-
 class ClientPostScreen extends ConsumerWidget {
   const ClientPostScreen({super.key, required this.post, this.openSalon});
 
@@ -490,7 +423,7 @@ class ClientPostScreen extends ConsumerWidget {
       appBar: AppBar(title: Text(post.barberName)),
       body: ListView(
         children: [
-          AspectRatio(aspectRatio: 1, child: NetworkPhoto(url: post.imageUrl)),
+          AspectRatio(aspectRatio: 1, child: LocalPhoto(source: post.imageUrl)),
           ListTile(
             title: Text(
               post.barberName,
@@ -560,15 +493,7 @@ class ClientPostScreen extends ConsumerWidget {
               child: Center(child: CircularProgressIndicator()),
             ),
           },
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 12, 16, 24),
-            child: Text(
-              'Commenting and rating photos arrive with client accounts in '
-              'the next update.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: _muted, fontSize: 12),
-            ),
-          ),
+          PostReactions(postId: post.id),
         ],
       ),
     );

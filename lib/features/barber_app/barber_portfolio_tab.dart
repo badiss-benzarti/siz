@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/errors/app_exception.dart';
+import '../../core/media/local_photo.dart';
 import '../../core/ui/dashboard_widgets.dart';
 import '../../core/ui/ui_helpers.dart';
 import 'barber_session.dart';
@@ -251,7 +252,7 @@ class _GridTile extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          _Photo(url: post.imageUrl),
+          LocalPhoto(source: post.imageUrl),
           if (post.ratingCount > 0)
             Positioned(
               right: 4,
@@ -280,27 +281,6 @@ class _GridTile extends StatelessWidget {
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-/// A network photo with a calm placeholder while loading or offline.
-class _Photo extends StatelessWidget {
-  const _Photo({required this.url});
-
-  final String url;
-
-  @override
-  Widget build(BuildContext context) {
-    return Image.network(
-      url,
-      fit: BoxFit.cover,
-      loadingBuilder: (_, child, progress) =>
-          progress == null ? child : const ColoredBox(color: Color(0xFFE5E7EB)),
-      errorBuilder: (_, _, _) => const ColoredBox(
-        color: Color(0xFFE5E7EB),
-        child: Center(child: Icon(Icons.image_outlined, color: Colors.grey)),
       ),
     );
   }
@@ -352,7 +332,7 @@ class PostDetailScreen extends ConsumerWidget {
       ),
       body: ListView(
         children: [
-          AspectRatio(aspectRatio: 1, child: _Photo(url: post.imageUrl)),
+          AspectRatio(aspectRatio: 1, child: LocalPhoto(source: post.imageUrl)),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Row(

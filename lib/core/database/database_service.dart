@@ -1,7 +1,5 @@
 import 'package:sqflite/sqflite.dart';
 
-import '../sync/sync_schema.dart';
-
 import 'database_platform_io.dart'
     if (dart.library.js_interop) 'database_platform_web.dart';
 
@@ -19,7 +17,7 @@ class DatabaseService {
   Future<Database>? _opening;
 
   static const String _dbFileName = 'siz.db';
-  static const int schemaVersion = 6;
+  static const int schemaVersion = 7;
 
   /// The open database. Concurrent callers share the same connection.
   Future<Database> get database {
@@ -163,9 +161,6 @@ class DatabaseService {
     if (oldVersion < 2 && newVersion >= 2) {
       await _migrateToV2(db);
     }
-    if (oldVersion < 3 && newVersion >= 3) {
-      await _migrateToV3(db);
-    }
     if (oldVersion < 4 && newVersion >= 4) {
       await _migrateToV4(db);
     }
@@ -174,6 +169,9 @@ class DatabaseService {
     }
     if (oldVersion < 6 && newVersion >= 6) {
       await _migrateToV6(db);
+    }
+    if (oldVersion < 7 && newVersion >= 7) {
+      await _migrateToV7(db);
     }
   }
 
@@ -199,14 +197,10 @@ class DatabaseService {
     await batch.commit(noResult: true);
   }
 
-  /// v3: change capture for cloud sync (see [SyncSchema]).
-  Future<void> _migrateToV3(Database db) async {
-    final batch = db.batch();
-    SyncSchema.createStatements().forEach(batch.execute);
-    await batch.commit(noResult: true);
-  }
+  // v3 is skipped: it was cloud sync, which Siz does not have.
 
-  /// v4: where the salon is and whether clients can see it (client map).
+  /// v4: whether the salon is open and shown to clients. The location
+  /// columns are unused in Siz (no map).
   Future<void> _migrateToV4(Database db) async {
     final batch = db.batch()
       ..execute('ALTER TABLE shops ADD COLUMN latitude REAL;')
@@ -228,6 +222,107 @@ class DatabaseService {
   /// v6: a new name a barber asked for, waiting for the owner.
   Future<void> _migrateToV6(Database db) async {
     await db.execute('ALTER TABLE barbers ADD COLUMN requested_name TEXT;');
+  }
+
+  /// v7: everything the three roles share on this device. The `owners`
+  /// table holds every account (owners, barbers and clients) with its role.
+  Future<void> _migrateToV7(Database db) async {
+    final batch = db.batch()
+      ..execute(
+        "ALTER TABLE owners ADD COLUMN role TEXT NOT NULL DEFAULT 'owner';",
+      )
+      ..execute(
+        "ALTER TABLE barbers ADD COLUMN specialty TEXT NOT NULL DEFAULT '';",
+      )
+      // Who is waiting / seated / was served, when it is a client account.
+      ..execute('ALTER TABLE queue ADD COLUMN client_id TEXT;')
+      ..execute('ALTER TABLE chairs ADD COLUMN active_client_id TEXT;')
+      ..execute('ALTER TABLE tickets ADD COLUMN client_id TEXT;')
+      ..execute('''
+        CREATE TABLE barber_invites (
+          code TEXT PRIMARY KEY,
+          barber_id TEXT NOT NULL,
+          expires_at TEXT NOT NULL,
+          used_at TEXT,
+          FOREIGN KEY (barber_id) REFERENCES barbers (id) ON DELETE CASCADE
+        );
+      ''')
+      ..execute('''
+        CREATE TABLE bookings (
+          id TEXT PRIMARY KEY,
+          shop_id TEXT NOT NULL,
+          client_id TEXT NOT NULL,
+          barber_id TEXT,
+          service_name TEXT NOT NULL,
+          duration_minutes INTEGER NOT NULL,
+          starts_at TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending',
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (shop_id) REFERENCES shops (id) ON DELETE CASCADE,
+          FOREIGN KEY (client_id) REFERENCES owners (id) ON DELETE CASCADE,
+          FOREIGN KEY (barber_id) REFERENCES barbers (id) ON DELETE SET NULL
+        );
+      ''')
+      ..execute('''
+        CREATE TABLE visit_ratings (
+          ticket_id TEXT PRIMARY KEY,
+          barber_id TEXT NOT NULL,
+          client_id TEXT NOT NULL,
+          stars INTEGER NOT NULL CHECK (stars BETWEEN 1 AND 5),
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (ticket_id) REFERENCES tickets (id) ON DELETE CASCADE,
+          FOREIGN KEY (barber_id) REFERENCES barbers (id) ON DELETE CASCADE
+        );
+      ''')
+      ..execute('''
+        CREATE TABLE portfolio_posts (
+          id TEXT PRIMARY KEY,
+          barber_id TEXT NOT NULL,
+          shop_id TEXT NOT NULL,
+          image TEXT NOT NULL,
+          caption TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (barber_id) REFERENCES barbers (id) ON DELETE CASCADE,
+          FOREIGN KEY (shop_id) REFERENCES shops (id) ON DELETE CASCADE
+        );
+      ''')
+      ..execute('''
+        CREATE TABLE post_comments (
+          id TEXT PRIMARY KEY,
+          post_id TEXT NOT NULL,
+          author_id TEXT NOT NULL,
+          author_name TEXT NOT NULL,
+          body TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (post_id) REFERENCES portfolio_posts (id) ON DELETE CASCADE
+        );
+      ''')
+      ..execute('''
+        CREATE TABLE photo_ratings (
+          post_id TEXT NOT NULL,
+          client_id TEXT NOT NULL,
+          stars INTEGER NOT NULL CHECK (stars BETWEEN 1 AND 5),
+          PRIMARY KEY (post_id, client_id),
+          FOREIGN KEY (post_id) REFERENCES portfolio_posts (id) ON DELETE CASCADE
+        );
+      ''')
+      ..execute('''
+        CREATE TABLE favorites (
+          client_id TEXT NOT NULL,
+          shop_id TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          PRIMARY KEY (client_id, shop_id),
+          FOREIGN KEY (client_id) REFERENCES owners (id) ON DELETE CASCADE,
+          FOREIGN KEY (shop_id) REFERENCES shops (id) ON DELETE CASCADE
+        );
+      ''')
+      ..execute(
+        'CREATE INDEX idx_bookings_shop ON bookings (shop_id, starts_at);',
+      )
+      ..execute(
+        'CREATE INDEX idx_posts_barber ON portfolio_posts (barber_id, created_at);',
+      );
+    await batch.commit(noResult: true);
   }
 
   /// Closes the connection; the next access reopens it.

@@ -14,8 +14,8 @@ import 'features/dashboard/presentation/screens/main_navigation_screen.dart';
 import 'features/welcome/entry_role.dart';
 import 'features/welcome/welcome_screen.dart';
 
-class BarberShopOwnerApp extends ConsumerWidget {
-  const BarberShopOwnerApp({super.key});
+class SizApp extends ConsumerWidget {
+  const SizApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

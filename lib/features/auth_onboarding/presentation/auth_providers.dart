@@ -1,15 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/cloud/cloud_auth.dart';
-import '../../../core/cloud/cloud_shop_repository.dart';
+import '../../../core/auth/account_auth.dart';
 import '../../../core/demo/demo_seeder.dart';
 import '../../../core/errors/app_exception.dart';
-import '../../../core/providers/cloud_providers.dart';
 import '../../../core/providers/core_providers.dart';
+import '../../../core/providers/data_revision.dart';
 import '../../../core/repositories/floor_plan_repository.dart';
 import '../../../core/repositories/queue_repository.dart';
 import '../../../core/repositories/shop_repository.dart';
-import '../../../core/sync/sync_controller.dart';
 import '../domain/owner_account.dart';
 import '../domain/shop_profile.dart';
 import '../../barbers/domain/barber.dart';
@@ -85,62 +83,34 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   ShopRepository get _repository => ref.read(shopRepositoryProvider);
-  CloudAuth get _cloudAuth => ref.read(cloudAuthProvider);
-  CloudShopRepository get _cloudShops => ref.read(cloudShopRepositoryProvider);
+  AccountAuth get _auth => ref.read(accountAuthProvider);
 
-  /// Restores the owner signed in on this device. Works offline: the salon
-  /// is read from the device and only downloaded if it is not there yet.
+  /// Restores the owner signed in on this device, with their salon.
   Future<void> checkInitialSession() async {
     state = state.copyWith(isLoading: true, clearError: true);
-    OwnerAccount? owner;
-    try {
-      owner = await _repository.getActiveOwner();
-      if (owner == null) {
-        state = const AuthState();
-        return;
-      }
-      if (owner.isCloudAccount && _cloudAuth.currentUser?.id != owner.id) {
-        // The cloud session ended (signed out or expired): sign in again.
-        await _repository.logout();
-        state = const AuthState();
-        return;
-      }
-      var shop = await _repository.getShopProfileByOwnerId(owner.id);
-      if (shop == null && owner.isCloudAccount) {
-        final remote = await _cloudShops.fetchOwnedShop(owner.id);
-        if (remote != null) shop = await _repository.importSnapshot(remote);
-      }
-      state = AuthState(owner: owner, shop: shop);
-    } catch (e) {
-      state = AuthState(owner: owner, errorMessage: describeError(e));
+    final user = _auth.currentUser;
+    if (user == null || user.role != AccountRole.owner) {
+      state = const AuthState();
+      return;
     }
+    await _open(user);
   }
 
-  /// Creates a cloud owner account. When the email must be confirmed first,
-  /// nobody is signed in and [AuthState.infoMessage] says what to do.
+  /// Creates an owner account on this device and signs it in.
   Future<bool> register({
     required String email,
     required String password,
     required String fullName,
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
-    final normalizedEmail = ShopRepository.normalizeEmail(email);
     try {
-      final user = await _cloudAuth.signUp(
-        email: normalizedEmail,
+      final user = await _auth.signUp(
+        email: email,
         password: password,
-        fullName: fullName.trim(),
+        fullName: fullName,
         role: AccountRole.owner,
       );
-      if (user == null) {
-        state = AuthState(
-          infoMessage:
-              'Account created. Open the link we sent to $normalizedEmail, '
-              'then sign in.',
-        );
-        return true;
-      }
-      await _signInCloudUser(user);
+      await _open(user);
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: describeError(e));
@@ -148,29 +118,17 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  /// Signs in with the cloud account. Accounts that exist only on this
-  /// device (created before cloud accounts) still work, also offline.
   Future<bool> login({required String email, required String password}) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final CloudUser user;
-      try {
-        user = await _cloudAuth.signIn(
-          email: ShopRepository.normalizeEmail(email),
-          password: password,
-        );
-      } on AppException {
-        if (!await _repository.hasDeviceOnlyAccount(email)) rethrow;
-        await _signInDeviceOnly(email, password);
-        return true;
-      }
+      final user = await _auth.signIn(email: email, password: password);
       if (user.role != AccountRole.owner) {
-        await _cloudAuth.signOut();
+        await _auth.signOut();
         throw const AppException(
           'This is not a salon owner account. Go back and choose your space.',
         );
       }
-      await _signInCloudUser(user);
+      await _open(user);
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: describeError(e));
@@ -178,53 +136,37 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  /// Creates the demo shop on this device if needed, then signs into it.
-  /// The demo never touches the cloud.
+  /// Creates the demo salon and its accounts if needed, then signs in as
+  /// its owner.
   Future<bool> loginDemo() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       await ref.read(demoSeederProvider).ensureDemoAccount();
-      await _signInDeviceOnly(DemoSeeder.email, DemoSeeder.password);
-      return true;
+      return await login(
+        email: DemoSeeder.email,
+        password: DemoSeeder.password,
+      );
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: describeError(e));
       return false;
     }
   }
 
-  Future<void> _signInDeviceOnly(String email, String password) async {
-    final owner = await _repository.loginOwner(
-      email: email,
-      password: password,
-    );
-    final shop = await _repository.getShopProfileByOwnerId(owner.id);
-    state = AuthState(owner: owner, shop: shop);
-  }
-
-  /// Links the cloud account to this device and brings its salon here: from
-  /// the server, or the other way round for a salon created on this device
-  /// before it had a cloud account.
-  Future<void> _signInCloudUser(CloudUser user) async {
-    final owner = await _repository.signInCloudOwner(
-      id: user.id,
-      email: user.email,
-      fullName: user.fullName,
-    );
-    final local = await _repository.loadSnapshot(owner.id);
-    final remote = await _cloudShops.fetchOwnedShop(owner.id);
-
-    ShopProfile? shop;
-    if (local != null) {
-      if (remote == null) {
-        await _cloudShops.uploadShop(local);
-        // Its history (tickets, queue...) follows through sync.
-        await ref.read(syncEngineProvider).enqueueAll(local.shop.id);
+  Future<void> _open(AppUser user) async {
+    try {
+      final owner = await _repository.getOwner(user.id);
+      if (owner == null) {
+        await _auth.signOut();
+        state = const AuthState();
+        return;
       }
-      shop = local.shop;
-    } else if (remote != null) {
-      shop = await _repository.importSnapshot(remote);
+      final shop = await _repository.getShopProfileByOwnerId(owner.id);
+      // Barbers and clients may have changed the salon meanwhile.
+      ref.read(dataRevisionProvider.notifier).bump();
+      state = AuthState(owner: owner, shop: shop);
+    } catch (e) {
+      state = AuthState(errorMessage: describeError(e));
     }
-    state = AuthState(owner: owner, shop: shop);
   }
 
   void clearError() {
@@ -240,23 +182,12 @@ class AuthNotifier extends Notifier<AuthState> {
     required int totalChairs,
     required List<Barber> initialBarbers,
     required List<ServiceItem> services,
-    double? latitude,
-    double? longitude,
   }) async {
     final owner = state.owner;
     if (owner == null) return false;
 
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      if (owner.isCloudAccount) {
-        // Created meanwhile on another device: use that one.
-        final remote = await _cloudShops.fetchOwnedShop(owner.id);
-        if (remote != null) {
-          final shop = await _repository.importSnapshot(remote);
-          state = state.copyWith(shop: shop, isLoading: false);
-          return true;
-        }
-      }
       final shop = await _repository.setupShopProfile(
         ownerId: owner.id,
         name: name,
@@ -265,19 +196,7 @@ class AuthNotifier extends Notifier<AuthState> {
         totalChairs: totalChairs,
         initialBarbers: initialBarbers,
         services: services,
-        latitude: latitude,
-        longitude: longitude,
       );
-      if (owner.isCloudAccount) {
-        try {
-          final snapshot = await _repository.loadSnapshot(owner.id);
-          await _cloudShops.uploadShop(snapshot!);
-        } catch (_) {
-          // Keep device and server identical: the whole setup is retried.
-          await _repository.deleteShopLocally(shop.id);
-          rethrow;
-        }
-      }
       state = state.copyWith(shop: shop, isLoading: false);
       return true;
     } catch (e) {
@@ -310,18 +229,6 @@ class AuthNotifier extends Notifier<AuthState> {
     await reloadShop();
   }
 
-  /// Throws [AppException] for an invalid position.
-  Future<void> updateShopLocation(double latitude, double longitude) async {
-    final shop = state.shop;
-    if (shop == null) return;
-    await _repository.updateShopLocation(
-      shopId: shop.id,
-      latitude: latitude,
-      longitude: longitude,
-    );
-    await reloadShop();
-  }
-
   Future<void> setShopOpen(bool isOpen) async {
     final shop = state.shop;
     if (shop == null) return;
@@ -329,7 +236,6 @@ class AuthNotifier extends Notifier<AuthState> {
     await reloadShop();
   }
 
-  /// Throws [AppException] when the salon has no location yet.
   Future<void> setShopListed(bool isListed) async {
     final shop = state.shop;
     if (shop == null) return;
@@ -374,8 +280,7 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   Future<void> logout() async {
-    if (state.owner?.isCloudAccount ?? false) await _cloudAuth.signOut();
-    await _repository.logout();
+    await _auth.signOut();
     state = const AuthState();
   }
 }

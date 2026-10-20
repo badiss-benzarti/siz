@@ -1,6 +1,5 @@
 import 'package:siz/features/client_app/client_directory.dart';
 import 'package:siz/features/floor_plan/domain/station.dart';
-import 'package:latlong2/latlong.dart' show LatLng;
 
 /// One listed salon, Blade & Crown, with two barbers, prices and a photo.
 class FakeClientDirectory implements ClientDirectory {
@@ -8,7 +7,6 @@ class FakeClientDirectory implements ClientDirectory {
     id: 's1',
     name: 'Blade & Crown',
     address: 'Avenue Habib Bourguiba, Tunis',
-    position: LatLng(36.8008, 10.18),
     isOpen: true,
     waitingCount: 2,
     totalChairs: 4,
@@ -20,7 +18,7 @@ class FakeClientDirectory implements ClientDirectory {
     shopId: 's1',
     shopName: 'Blade & Crown',
     barberName: 'Sami',
-    imageUrl: 'https://example.test/p1.jpg',
+    imageUrl: 'art:fade',
     caption: 'Mid skin fade',
     ratingAvg: 4.5,
     ratingCount: 2,
@@ -31,12 +29,7 @@ class FakeClientDirectory implements ClientDirectory {
   int salonRequests = 0;
 
   @override
-  Future<List<ClientSalon>> salonsIn({
-    required double south,
-    required double west,
-    required double north,
-    required double east,
-  }) async {
+  Future<List<ClientSalon>> salons() async {
     salonRequests++;
     return [blade];
   }

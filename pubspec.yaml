@@ -44,10 +44,6 @@ dependencies:
   intl: ^0.20.3
   uuid: ^4.6.0
   sqflite_common_ffi_web: ^1.2.0
-  flutter_map: ^8.3.2
-  latlong2: ^0.10.1
-  supabase_flutter: ^2.18.0
-  http: ^1.6.0
   image_picker: ^1.2.4
   image: ^4.10.1
 
